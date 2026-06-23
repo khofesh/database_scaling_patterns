@@ -73,18 +73,18 @@ func demonstrateExhaustion(ctx context.Context, admin *pgxpool.Pool) {
 
 	fmt.Printf("   Firing %d concurrent direct queries at a 20-connection server...\n", concurrency)
 	maxBackends := sampleBackends(ctx, admin, 400*time.Millisecond)
-	var ok, failed int64
+	var ok, failed atomic.Int64
 	runLoad(concurrency, func() {
 		// pg_sleep holds the connection so many are needed at once.
 		_, err := pool.Exec(ctx, "SELECT pg_sleep(0.3)")
 		if err != nil {
-			atomic.AddInt64(&failed, 1)
+			failed.Add(1)
 		} else {
-			atomic.AddInt64(&ok, 1)
+			ok.Add(1)
 		}
 	})
 
-	fmt.Printf("   Succeeded: %d   Failed (too many clients): %d\n", ok, failed)
+	fmt.Printf("   Succeeded: %d   Failed (too many clients): %d\n", ok.Load(), failed.Load())
 	fmt.Printf("   Peak client backends seen on the server: %d\n", <-maxBackends)
 }
 
@@ -102,17 +102,17 @@ func demonstrateMultiplexing(ctx context.Context, admin *pgxpool.Pool) {
 
 	fmt.Printf("   Firing %d concurrent queries through PgBouncer (pool size 5)...\n", concurrency)
 	maxBackends := sampleBackends(ctx, admin, 800*time.Millisecond)
-	var ok, failed int64
+	var ok, failed atomic.Int64
 	runLoad(concurrency, func() {
 		_, err := pool.Exec(ctx, "SELECT pg_sleep(0.05)")
 		if err != nil {
-			atomic.AddInt64(&failed, 1)
+			failed.Add(1)
 		} else {
-			atomic.AddInt64(&ok, 1)
+			ok.Add(1)
 		}
 	})
 
-	fmt.Printf("   Succeeded: %d   Failed: %d\n", ok, failed)
+	fmt.Printf("   Succeeded: %d   Failed: %d\n", ok.Load(), failed.Load())
 	fmt.Printf("   Peak client backends seen on the server: %d (≈ pool size, not %d)\n",
 		<-maxBackends, concurrency)
 }
@@ -174,12 +174,10 @@ func showPgBouncerPools(ctx context.Context) {
 // runLoad runs fn in `n` goroutines and waits for all of them.
 func runLoad(n int, fn func()) {
 	var wg sync.WaitGroup
-	wg.Add(n)
-	for i := 0; i < n; i++ {
-		go func() {
-			defer wg.Done()
+	for range n {
+		wg.Go(func() {
 			fn()
-		}()
+		})
 	}
 	wg.Wait()
 }

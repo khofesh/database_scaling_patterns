@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math/rand"
+	"math/rand/v2"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -25,31 +26,31 @@ func main() {
 	defer pool.Close()
 
 	fmt.Println("Connected to PostgreSQL!")
-	fmt.Println("=" + string(make([]byte, 50)))
+	fmt.Println(strings.Repeat("=", 50))
 
 	// Demonstrate Range Partitioning (Orders)
 	fmt.Println("\n📊 RANGE PARTITIONING DEMO (Orders by Date)")
-	fmt.Println("-" + string(make([]byte, 50)))
+	fmt.Println(strings.Repeat("-", 50))
 	demonstrateRangePartitioning(ctx, pool)
 
 	// Demonstrate Hash Partitioning (Users)
 	fmt.Println("\n🔢 HASH PARTITIONING DEMO (Users by ID)")
-	fmt.Println("-" + string(make([]byte, 50)))
+	fmt.Println(strings.Repeat("-", 50))
 	demonstrateHashPartitioning(ctx, pool)
 
 	// Demonstrate List Partitioning (Products)
 	fmt.Println("\n📝 LIST PARTITIONING DEMO (Products by Category)")
-	fmt.Println("-" + string(make([]byte, 50)))
+	fmt.Println(strings.Repeat("-", 50))
 	demonstrateListPartitioning(ctx, pool)
 
 	// Show partition information
 	fmt.Println("\n📈 PARTITION STATISTICS")
-	fmt.Println("-" + string(make([]byte, 50)))
+	fmt.Println(strings.Repeat("-", 50))
 	showPartitionStats(ctx, pool)
 
 	// Demonstrate query performance with partition pruning
 	fmt.Println("\n⚡ QUERY PERFORMANCE WITH PARTITION PRUNING")
-	fmt.Println("-" + string(make([]byte, 50)))
+	fmt.Println(strings.Repeat("-", 50))
 	demonstratePartitionPruning(ctx, pool)
 }
 
@@ -234,7 +235,6 @@ func showPartitionStats(ctx context.Context, pool *pgxpool.Pool) {
 
 func demonstratePartitionPruning(ctx context.Context, pool *pgxpool.Pool) {
 	// Insert more data for performance testing
-	rand.Seed(time.Now().UnixNano())
 	statuses := []string{"pending", "completed", "shipped", "cancelled"}
 
 	fmt.Println("📥 Inserting 1000 random orders for performance testing...")
@@ -242,11 +242,11 @@ func demonstratePartitionPruning(ctx context.Context, pool *pgxpool.Pool) {
 	batch := &pgx.Batch{}
 	for i := 0; i < 1000; i++ {
 		// Random date between 2024-01-01 and 2026-03-31
-		days := rand.Intn(820)
+		days := rand.IntN(820)
 		orderDate := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, days)
-		customerID := rand.Intn(100) + 1
-		amount := float64(rand.Intn(10000)) / 100.0
-		status := statuses[rand.Intn(len(statuses))]
+		customerID := rand.IntN(100) + 1
+		amount := float64(rand.IntN(10000)) / 100.0
+		status := statuses[rand.IntN(len(statuses))]
 
 		batch.Queue(
 			"INSERT INTO orders (order_date, customer_id, amount, status) VALUES ($1, $2, $3, $4)",

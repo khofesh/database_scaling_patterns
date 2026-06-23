@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"log"
-	"sort"
+	"slices"
 	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -53,7 +53,7 @@ func (h *HashRing) AddNode(node string) {
 		h.ring = append(h.ring, hash)
 		h.owners[hash] = node
 	}
-	sort.Slice(h.ring, func(i, j int) bool { return h.ring[i] < h.ring[j] })
+	slices.Sort(h.ring)
 }
 
 func (h *HashRing) RemoveNode(node string) {
@@ -83,7 +83,7 @@ func (h *HashRing) Get(key string) string {
 		return ""
 	}
 	hash := hashKey(key)
-	idx := sort.Search(len(h.ring), func(i int) bool { return h.ring[i] >= hash })
+	idx, _ := slices.BinarySearch(h.ring, hash)
 	if idx == len(h.ring) {
 		idx = 0 // wrap around
 	}
