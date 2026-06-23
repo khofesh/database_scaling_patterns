@@ -4,7 +4,7 @@
 
 - **Programming Language**: Go 1.26.0
 - **Container**: Docker Compose
-- **Database**: PostgreSQL 18
+- **Database**: PostgreSQL 18 (and CockroachDB v26.2 for the NewSQL example)
 
 ## Projects
 
@@ -18,3 +18,6 @@
 - **[simulate_cqrs](./simulate_cqrs)** - Command Query Responsibility Segregation: normalized write store + denormalized read store via a projector
 - **[simulate_automatic_failover](./simulate_automatic_failover)** - Health-checked failover manager promoting a standby with pg_promote()
 - **[simulate_multitenancy_shared_schema](./simulate_multitenancy_shared_schema)** - Shared schema multi-tenancy isolated with PostgreSQL Row-Level Security
+- **[simulate_event_sourcing](./simulate_event_sourcing)** - Append-only event log: state reconstruction by replay, snapshots, optimistic concurrency
+- **[simulate_newsql](./simulate_newsql)** - 3-node CockroachDB cluster: distributed ACID transactions, auto-sharding/replication, fault tolerance
+- **[simulate_data_tiering](./simulate_data_tiering)** - Hot/warm/cold storage tiers via partitioning + tablespaces with age-based migration

@@ -1,0 +1,24 @@
+services:
+  # A single PostgreSQL instance is enough: event sourcing is a modeling pattern,
+  # not a distribution pattern. The "magic" is in the append-only event log and
+  # how state is derived from it — not in the topology.
+  postgres:
+    image: postgres:18-bookworm
+    container_name: event_sourcing_pg
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: eventstore
+    ports:
+      - "5490:5432"
+    volumes:
+      - event_sourcing_data:/var/lib/postgresql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  event_sourcing_data:

@@ -1,0 +1,57 @@
+# A 3-node CockroachDB cluster. NewSQL databases give you the SQL + ACID semantics
+# of PostgreSQL with the horizontal scalability and fault tolerance of a distributed
+# system — without the application-level sharding you see in simulate_database_sharding.
+#
+# Each node is an equal peer. Data is automatically split into "ranges" and each
+# range is replicated to 3 nodes (Raft consensus), so the cluster survives losing a
+# node with no data loss and no manual failover.
+
+services:
+  roach1:
+    image: cockroachdb/cockroach:latest-v26.2
+    container_name: newsql_roach1
+    hostname: roach1
+    command: start --insecure --join=roach1,roach2,roach3 --advertise-addr=roach1
+    ports:
+      - "26257:26257" # SQL  (the app connects here)
+      - "8090:8080"   # DB Console UI → http://localhost:8090
+    volumes:
+      - newsql_roach1:/cockroach/cockroach-data
+    healthcheck:
+      test: ["CMD", "cockroach", "sql", "--insecure", "--host=localhost:26257", "-e", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  roach2:
+    image: cockroachdb/cockroach:latest-v26.2
+    container_name: newsql_roach2
+    hostname: roach2
+    command: start --insecure --join=roach1,roach2,roach3 --advertise-addr=roach2
+    volumes:
+      - newsql_roach2:/cockroach/cockroach-data
+
+  roach3:
+    image: cockroachdb/cockroach:latest-v26.2
+    container_name: newsql_roach3
+    hostname: roach3
+    command: start --insecure --join=roach1,roach2,roach3 --advertise-addr=roach3
+    volumes:
+      - newsql_roach3:/cockroach/cockroach-data
+
+  # One-shot: performs the cluster bootstrap (`cockroach init`) exactly once, then
+  # exits. Until this runs, the nodes are up but refuse SQL — that's expected.
+  init:
+    image: cockroachdb/cockroach:latest-v26.2
+    container_name: newsql_init
+    command: init --insecure --host=roach1
+    depends_on:
+      - roach1
+      - roach2
+      - roach3
+    restart: on-failure
+
+volumes:
+  newsql_roach1:
+  newsql_roach2:
+  newsql_roach3:

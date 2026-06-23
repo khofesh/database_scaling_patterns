@@ -24,6 +24,12 @@ This document tracks database scaling methods and patterns to implement in this 
   - Health-checked failover manager, `pg_promote()` of a hot standby, write redirection, split-brain notes
 - [x] **Multi-Tenancy (Shared Schema)** - `simulate_multitenancy_shared_schema/`
   - Single schema + `tenant_id` column isolated with Row-Level Security (USING/WITH CHECK), fail-closed
+- [x] **Event Sourcing** - `simulate_event_sourcing/`
+  - Append-only event log, state reconstruction by replay, snapshots, optimistic concurrency via version
+- [x] **NewSQL (CockroachDB)** - `simulate_newsql/`
+  - 3-node cluster, distributed serializable ACID transactions, automatic sharding/replication, fault tolerance
+- [x] **Data Tiering** - `simulate_data_tiering/`
+  - Hot/warm/cold tablespaces + monthly partitions, age-based migration, partition pruning, transparent queries
 
 ---
 
@@ -90,7 +96,7 @@ This document tracks database scaling methods and patterns to implement in this 
   - Event sourcing integration
   - Eventual consistency handling
 
-- [ ] **Event Sourcing**
+- [x] **Event Sourcing** - `simulate_event_sourcing/`
   - Append-only event log
   - State reconstruction from events
   - Snapshots for performance
@@ -121,7 +127,7 @@ This document tracks database scaling methods and patterns to implement in this 
   - Archive tables with different storage parameters
   - Retrieval strategies
 
-- [ ] **Hot/Warm/Cold Data Tiering**
+- [x] **Hot/Warm/Cold Data Tiering** - `simulate_data_tiering/`
   - Automatic data movement based on access patterns
   - Tablespace management
   - Integration with object storage (S3)
@@ -142,7 +148,7 @@ This document tracks database scaling methods and patterns to implement in this 
 
 ### Emerging Patterns
 
-- [ ] **NewSQL Databases**
+- [x] **NewSQL Databases** - `simulate_newsql/`
   - CockroachDB, TiDB, YugabyteDB
   - Distributed SQL with ACID guarantees
   - Comparison with traditional sharding
@@ -170,11 +176,11 @@ This document tracks database scaling methods and patterns to implement in this 
 7. ~~Automatic Failover~~ ✅
 8. ~~Multi-Tenancy (Shared Schema)~~ ✅
 
-### Lower Priority (Specialized use cases)
+### Lower Priority (Specialized use cases) — ✅ done
 
-9. Event Sourcing
-10. NewSQL exploration
-11. Data Tiering
+9. ~~Event Sourcing~~ ✅
+10. ~~NewSQL exploration~~ ✅
+11. ~~Data Tiering~~ ✅
 
 ---
 
@@ -186,3 +192,4 @@ This document tracks database scaling methods and patterns to implement in this 
   - DOCUMENTATION.md with line-by-line explanation
   - Pros/cons analysis
   - When to use guidance
+- Make sure you're not using outdated methods either in golang or in docker and sql
