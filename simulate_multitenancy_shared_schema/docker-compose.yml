@@ -1,0 +1,23 @@
+services:
+  # A single database shared by all tenants. Isolation is enforced by a tenant_id
+  # column plus Row-Level Security policies — not by separate schemas or databases.
+  postgres:
+    image: postgres:18-bookworm
+    container_name: multitenancy_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: saas_db
+    ports:
+      - "5480:5432"
+    volumes:
+      - multitenancy_data:/var/lib/postgresql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  multitenancy_data:

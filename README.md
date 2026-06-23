@@ -14,3 +14,7 @@
 - **[simulate_connection_pooling](./simulate_connection_pooling)** - PgBouncer multiplexing many clients onto a few PostgreSQL connections
 - **[simulate_query_caching](./simulate_query_caching)** - Redis cache-aside with TTL, write-through, and invalidation
 - **[simulate_read_write_splitting](./simulate_read_write_splitting)** - Application-level router sending writes to the primary and reads to replicas
+- **[simulate_consistent_hashing](./simulate_consistent_hashing)** - Hash ring with virtual nodes: minimal data movement on resize vs modulo sharding
+- **[simulate_cqrs](./simulate_cqrs)** - Command Query Responsibility Segregation: normalized write store + denormalized read store via a projector
+- **[simulate_automatic_failover](./simulate_automatic_failover)** - Health-checked failover manager promoting a standby with pg_promote()
+- **[simulate_multitenancy_shared_schema](./simulate_multitenancy_shared_schema)** - Shared schema multi-tenancy isolated with PostgreSQL Row-Level Security

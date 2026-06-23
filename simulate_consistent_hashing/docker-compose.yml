@@ -1,0 +1,82 @@
+services:
+  # Four physical nodes placed on the hash ring. The app starts using only
+  # node1..node3 and later "adds" node4 to show how little data moves.
+  postgres_node1:
+    image: postgres:18-bookworm
+    container_name: chash_node1
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: chash_db
+    ports:
+      - "5450:5432"
+    volumes:
+      - chash_node1_data:/var/lib/postgresql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres_node2:
+    image: postgres:18-bookworm
+    container_name: chash_node2
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: chash_db
+    ports:
+      - "5451:5432"
+    volumes:
+      - chash_node2_data:/var/lib/postgresql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres_node3:
+    image: postgres:18-bookworm
+    container_name: chash_node3
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: chash_db
+    ports:
+      - "5452:5432"
+    volumes:
+      - chash_node3_data:/var/lib/postgresql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # The "new" node. It is up from the start, but the app only adds it to the
+  # ring mid-demo to measure how many keys have to be re-homed.
+  postgres_node4:
+    image: postgres:18-bookworm
+    container_name: chash_node4
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: chash_db
+    ports:
+      - "5453:5432"
+    volumes:
+      - chash_node4_data:/var/lib/postgresql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  chash_node1_data:
+  chash_node2_data:
+  chash_node3_data:
+  chash_node4_data:
