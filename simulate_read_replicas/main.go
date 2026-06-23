@@ -15,7 +15,7 @@ import (
 type ReplicaSet struct {
 	primary  *pgxpool.Pool
 	replicas []*pgxpool.Pool
-	next     uint64 // round-robin counter for replica selection
+	next     atomic.Uint64 // round-robin counter for replica selection
 }
 
 // NewReplicaSet connects to the primary and every replica.
@@ -65,7 +65,7 @@ func (rs *ReplicaSet) readerWithIndex() (*pgxpool.Pool, int) {
 	if len(rs.replicas) == 0 {
 		return rs.primary, -1
 	}
-	i := atomic.AddUint64(&rs.next, 1)
+	i := rs.next.Add(1)
 	idx := int(i % uint64(len(rs.replicas)))
 	return rs.replicas[idx], idx
 }

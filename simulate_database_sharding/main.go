@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log"
-	"math/rand"
+	"math/rand/v2"
+	"strings"
 	"sync"
 	"time"
 
@@ -111,33 +112,33 @@ func main() {
 	}
 	defer sm.Close()
 
-	fmt.Println("\n" + string(make([]byte, 60)))
+	fmt.Println("\n" + strings.Repeat("=", 60))
 	fmt.Println("🔀 DATABASE SHARDING SIMULATION")
-	fmt.Println(string(make([]byte, 60)))
+	fmt.Println(strings.Repeat("=", 60))
 
 	// Demonstrate user sharding
 	fmt.Println("\n👥 USER SHARDING DEMO")
-	fmt.Println("-" + string(make([]byte, 50)))
+	fmt.Println(strings.Repeat("-", 50))
 	demonstrateUserSharding(ctx, sm)
 
 	// Demonstrate order sharding (co-located with users)
 	fmt.Println("\n📦 ORDER SHARDING DEMO (Co-located with Users)")
-	fmt.Println("-" + string(make([]byte, 50)))
+	fmt.Println(strings.Repeat("-", 50))
 	demonstrateOrderSharding(ctx, sm)
 
 	// Demonstrate scatter-gather query
 	fmt.Println("\n🔍 SCATTER-GATHER QUERY DEMO")
-	fmt.Println("-" + string(make([]byte, 50)))
+	fmt.Println(strings.Repeat("-", 50))
 	demonstrateScatterGather(ctx, sm)
 
 	// Show shard statistics
 	fmt.Println("\n📊 SHARD STATISTICS")
-	fmt.Println("-" + string(make([]byte, 50)))
+	fmt.Println(strings.Repeat("-", 50))
 	showShardStats(ctx, sm)
 
 	// Demonstrate cross-shard aggregation
 	fmt.Println("\n📈 CROSS-SHARD AGGREGATION")
-	fmt.Println("-" + string(make([]byte, 50)))
+	fmt.Println(strings.Repeat("-", 50))
 	demonstrateCrossShardAggregation(ctx, sm)
 }
 
@@ -184,7 +185,6 @@ func demonstrateUserSharding(ctx context.Context, sm *ShardManager) {
 }
 
 func demonstrateOrderSharding(ctx context.Context, sm *ShardManager) {
-	rand.Seed(time.Now().UnixNano())
 	statuses := []string{"pending", "completed", "shipped", "cancelled"}
 
 	fmt.Println("📥 Inserting orders (co-located with their users)...")
@@ -195,11 +195,11 @@ func demonstrateOrderSharding(ctx context.Context, sm *ShardManager) {
 		shardIdx := sm.GetShardIndex(userID)
 
 		// Each user gets 2-5 orders
-		numOrders := rand.Intn(4) + 2
+		numOrders := rand.IntN(4) + 2
 		for i := 0; i < numOrders; i++ {
-			orderDate := time.Now().AddDate(0, 0, -rand.Intn(365))
-			amount := float64(rand.Intn(50000)) / 100.0
-			status := statuses[rand.Intn(len(statuses))]
+			orderDate := time.Now().AddDate(0, 0, -rand.IntN(365))
+			amount := float64(rand.IntN(50000)) / 100.0
+			status := statuses[rand.IntN(len(statuses))]
 
 			_, err := shard.Exec(ctx,
 				"INSERT INTO orders (user_id, order_date, amount, status) VALUES ($1, $2, $3, $4)",
@@ -245,12 +245,9 @@ func demonstrateScatterGather(ctx context.Context, sm *ShardManager) {
 
 	// Query all shards in parallel
 	for i, shard := range sm.GetAllShards() {
-		wg.Add(1)
-		go func(idx int, pool *pgxpool.Pool) {
-			defer wg.Done()
-
+		wg.Go(func() {
 			var user User
-			err := pool.QueryRow(ctx,
+			err := shard.QueryRow(ctx,
 				"SELECT id, username, email FROM users WHERE username = $1", "alice").
 				Scan(&user.ID, &user.Username, &user.Email)
 
@@ -258,9 +255,9 @@ func demonstrateScatterGather(ctx context.Context, sm *ShardManager) {
 				results <- struct {
 					shardIdx int
 					user     *User
-				}{idx, &user}
+				}{i, &user}
 			}
-		}(i, shard)
+		})
 	}
 
 	// Wait for all queries to complete
@@ -329,14 +326,11 @@ func demonstrateCrossShardAggregation(ctx context.Context, sm *ShardManager) {
 	// Query all shards in parallel
 	start := time.Now()
 	for i, shard := range sm.GetAllShards() {
-		wg.Add(1)
-		go func(idx int, pool *pgxpool.Pool) {
-			defer wg.Done()
-
+		wg.Go(func() {
 			var stats ShardStats
-			stats.shardIdx = idx
+			stats.shardIdx = i
 
-			err := pool.QueryRow(ctx, `
+			err := shard.QueryRow(ctx, `
 				SELECT 
 					COALESCE(SUM(amount), 0) as total_sales,
 					COUNT(*) as order_count,
@@ -345,12 +339,12 @@ func demonstrateCrossShardAggregation(ctx context.Context, sm *ShardManager) {
 			`).Scan(&stats.totalSales, &stats.orderCount, &stats.avgOrder)
 
 			if err != nil {
-				log.Printf("Error getting stats from shard %d: %v", idx+1, err)
+				log.Printf("Error getting stats from shard %d: %v", i+1, err)
 				return
 			}
 
 			results <- stats
-		}(i, shard)
+		})
 	}
 
 	// Wait for all queries to complete

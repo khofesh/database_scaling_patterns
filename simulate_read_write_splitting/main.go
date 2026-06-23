@@ -18,9 +18,9 @@ import (
 type Router struct {
 	primary  *pgxpool.Pool
 	replicas []*pgxpool.Pool
-	next     uint64
+	next     atomic.Uint64
 
-	writes          atomic.Int64
+	writes           atomic.Int64
 	readsFromReplica atomic.Int64
 	readsFromPrimary atomic.Int64
 }
@@ -55,7 +55,7 @@ func (r *Router) pickReplica() *pgxpool.Pool {
 	if len(r.replicas) == 0 {
 		return r.primary
 	}
-	i := atomic.AddUint64(&r.next, 1)
+	i := r.next.Add(1)
 	return r.replicas[i%uint64(len(r.replicas))]
 }
 
