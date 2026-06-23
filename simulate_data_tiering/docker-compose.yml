@@ -1,0 +1,26 @@
+services:
+  # A single PostgreSQL instance with THREE tablespaces standing in for storage
+  # tiers: hot (fast/expensive), warm, and cold (slow/cheap). In production these
+  # would point at different physical volumes — NVMe vs SSD vs HDD/object storage.
+  # Here they are separate directories so the mechanics (CREATE TABLESPACE, ALTER
+  # TABLE ... SET TABLESPACE, partition pruning) are real even on one disk.
+  postgres:
+    image: postgres:18-bookworm
+    container_name: data_tiering_pg
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: tiering
+    ports:
+      - "5491:5432"
+    volumes:
+      - data_tiering_data:/var/lib/postgresql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  data_tiering_data:
