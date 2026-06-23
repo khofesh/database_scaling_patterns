@@ -1,0 +1,46 @@
+services:
+  # Backend database. max_connections is deliberately small (20) to show how a
+  # pooler lets thousands of clients share a handful of server connections.
+  postgres:
+    image: postgres:18-bookworm
+    container_name: pooling_postgres
+    command: ["postgres", "-c", "max_connections=20"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app_db
+    ports:
+      - "5440:5432"
+    volumes:
+      - pooling_data:/var/lib/postgresql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # PgBouncer in transaction-pooling mode. Up to 1000 clients can connect, but
+  # only DEFAULT_POOL_SIZE (5) server connections per user/db are actually opened.
+  pgbouncer:
+    image: edoburu/pgbouncer:v1.24.1-p1
+    container_name: pooling_pgbouncer
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: app_db
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: "1000"
+      DEFAULT_POOL_SIZE: "5"
+      AUTH_TYPE: scram-sha-256
+      ADMIN_USERS: postgres
+    ports:
+      - "6432:5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pooling_data:
