@@ -8,17 +8,20 @@ This document tracks database scaling methods and patterns to implement in this 
   - Range partitioning, list partitioning, hash partitioning within a single database
 - [x] **Database Sharding** - `simulate_database_sharding/`
   - Horizontal sharding across multiple database instances with application-level routing
+- [x] **Read Replicas** - `simulate_read_replicas/`
+  - Primary + 2 streaming replicas, write to primary / read from replicas, load balancing, replication lag, read-your-writes
+- [x] **Connection Pooling** - `simulate_connection_pooling/`
+  - PgBouncer transaction pooling, connection exhaustion vs multiplexing, pool sizing, `SHOW POOLS`
+- [x] **Database Query Caching** - `simulate_query_caching/`
+  - Redis cache-aside, TTL, write-through, write+invalidate, hit ratio, graceful degradation
+- [x] **Read-Write Splitting** - `simulate_read_write_splitting/`
+  - Application-level router (writes→primary, reads→replicas) with LSN-based read-your-writes
 
 ---
 
 ## To Implement
 
 ### Replication Patterns
-
-- [ ] **Read Replicas**
-  - Primary-replica setup with read scaling
-  - Write to primary, read from replicas
-  - Replication lag handling strategies
 
 - [ ] **Multi-Primary Replication**
   - Multiple writable nodes
@@ -31,21 +34,11 @@ This document tracks database scaling methods and patterns to implement in this 
 
 ### Caching Patterns
 
-- [ ] **Database Query Caching**
-  - Redis/Memcached as cache layer
-  - Cache invalidation strategies (TTL, write-through, write-behind)
-  - Cache-aside pattern implementation
-
 - [ ] **Materialized Views**
   - Pre-computed query results
   - Refresh strategies (on-demand, periodic, incremental)
 
 ### Connection Management
-
-- [ ] **Connection Pooling**
-  - PgBouncer / pgpool-II setup
-  - Pool sizing strategies
-  - Transaction vs session pooling modes
 
 - [ ] **Connection Load Balancing**
   - HAProxy / pgpool for distributing connections
@@ -108,11 +101,6 @@ This document tracks database scaling methods and patterns to implement in this 
 
 ### Query Optimization Patterns
 
-- [ ] **Read-Write Splitting**
-  - Proxy-based routing (ProxySQL, pgpool)
-  - Application-level routing
-  - Handling replication lag for reads
-
 - [ ] **Database Indexing Strategies**
   - B-tree, Hash, GIN, GiST indexes
   - Partial indexes, covering indexes
@@ -160,19 +148,22 @@ This document tracks database scaling methods and patterns to implement in this 
 
 ## Priority Suggestions
 
-### High Priority (Common patterns)
-1. Read Replicas
-2. Connection Pooling
-3. Database Query Caching
-4. Read-Write Splitting
+### High Priority (Common patterns) — ✅ done
 
-### Medium Priority (Advanced scaling)
+1. ~~Read Replicas~~ ✅
+2. ~~Connection Pooling~~ ✅
+3. ~~Database Query Caching~~ ✅
+4. ~~Read-Write Splitting~~ ✅
+
+### Medium Priority (Advanced scaling) — next up
+
 5. Consistent Hashing
 6. CQRS
 7. Automatic Failover
 8. Multi-Tenancy (Shared Schema)
 
 ### Lower Priority (Specialized use cases)
+
 9. Event Sourcing
 10. NewSQL exploration
 11. Data Tiering

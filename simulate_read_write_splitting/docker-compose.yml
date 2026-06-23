@@ -1,0 +1,72 @@
+services:
+  # Primary - the single write node. Streams WAL to both replicas.
+  postgres_primary:
+    image: postgres:18-bookworm
+    container_name: rwsplit_primary
+    # Retain enough WAL that multiple replicas can run pg_basebackup concurrently
+    # without the primary recycling a segment they still need.
+    command: ["postgres", "-c", "wal_keep_size=256MB"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app_db
+      PGDATA: /var/lib/postgresql/data
+    ports:
+      - "5442:5432"
+    volumes:
+      - rwsplit_primary_data:/var/lib/postgresql/data
+      - ./init/primary:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres_replica1:
+    image: postgres:18-bookworm
+    container_name: rwsplit_replica1
+    environment:
+      PGDATA: /var/lib/postgresql/data
+      PRIMARY_HOST: postgres_primary
+      REPLICATOR_PASSWORD: replicator
+    ports:
+      - "5443:5432"
+    volumes:
+      - rwsplit_replica1_data:/var/lib/postgresql/data
+      - ./init/replica-entrypoint.sh:/replica-entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/replica-entrypoint.sh"]
+    depends_on:
+      postgres_primary:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres_replica2:
+    image: postgres:18-bookworm
+    container_name: rwsplit_replica2
+    environment:
+      PGDATA: /var/lib/postgresql/data
+      PRIMARY_HOST: postgres_primary
+      REPLICATOR_PASSWORD: replicator
+    ports:
+      - "5444:5432"
+    volumes:
+      - rwsplit_replica2_data:/var/lib/postgresql/data
+      - ./init/replica-entrypoint.sh:/replica-entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/replica-entrypoint.sh"]
+    depends_on:
+      postgres_primary:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  rwsplit_primary_data:
+  rwsplit_replica1_data:
+  rwsplit_replica2_data:

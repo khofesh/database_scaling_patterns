@@ -1,0 +1,35 @@
+services:
+  # The system of record. A small artificial delay is added per query (via a
+  # SQL function) so the benefit of caching is obvious in the timings.
+  postgres:
+    image: postgres:18-bookworm
+    container_name: caching_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app_db
+    ports:
+      - "5441:5432"
+    volumes:
+      - caching_data:/var/lib/postgresql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # The cache layer.
+  redis:
+    image: redis:7-alpine
+    container_name: caching_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  caching_data:
