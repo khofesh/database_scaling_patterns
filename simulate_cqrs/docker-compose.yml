@@ -1,0 +1,42 @@
+services:
+  # WRITE store — normalized, optimized for correctness and transactional writes.
+  postgres_write:
+    image: postgres:18-bookworm
+    container_name: cqrs_write
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: write_db
+    ports:
+      - "5460:5432"
+    volumes:
+      - cqrs_write_data:/var/lib/postgresql
+      - ./init/write:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # READ store — denormalized, optimized for fast single-row reads.
+  postgres_read:
+    image: postgres:18-bookworm
+    container_name: cqrs_read
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: read_db
+    ports:
+      - "5461:5432"
+    volumes:
+      - cqrs_read_data:/var/lib/postgresql
+      - ./init/read:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  cqrs_write_data:
+  cqrs_read_data:

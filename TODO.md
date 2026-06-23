@@ -16,6 +16,14 @@ This document tracks database scaling methods and patterns to implement in this 
   - Redis cache-aside, TTL, write-through, write+invalidate, hit ratio, graceful degradation
 - [x] **Read-Write Splitting** - `simulate_read_write_splitting/`
   - Application-level router (writes→primary, reads→replicas) with LSN-based read-your-writes
+- [x] **Consistent Hashing** - `simulate_consistent_hashing/`
+  - Hash ring with virtual nodes, minimal data movement on node add/remove, comparison vs modulo sharding
+- [x] **CQRS** - `simulate_cqrs/`
+  - Normalized write store + denormalized read store, transactional outbox, projector, eventual consistency
+- [x] **Automatic Failover** - `simulate_automatic_failover/`
+  - Health-checked failover manager, `pg_promote()` of a hot standby, write redirection, split-brain notes
+- [x] **Multi-Tenancy (Shared Schema)** - `simulate_multitenancy_shared_schema/`
+  - Single schema + `tenant_id` column isolated with Row-Level Security (USING/WITH CHECK), fail-closed
 
 ---
 
@@ -46,7 +54,7 @@ This document tracks database scaling methods and patterns to implement in this 
 
 ### Data Distribution Patterns
 
-- [ ] **Consistent Hashing**
+- [x] **Consistent Hashing** - `simulate_consistent_hashing/`
   - Virtual nodes for better distribution
   - Minimal data movement on node changes
   - Comparison with modulo-based sharding
@@ -77,7 +85,7 @@ This document tracks database scaling methods and patterns to implement in this 
   - Separate databases by domain (users DB, orders DB, analytics DB)
   - Cross-database queries and joins
 
-- [ ] **CQRS (Command Query Responsibility Segregation)**
+- [x] **CQRS (Command Query Responsibility Segregation)** - `simulate_cqrs/`
   - Separate read and write models
   - Event sourcing integration
   - Eventual consistency handling
@@ -89,7 +97,7 @@ This document tracks database scaling methods and patterns to implement in this 
 
 ### High Availability Patterns
 
-- [ ] **Automatic Failover**
+- [x] **Automatic Failover** - `simulate_automatic_failover/`
   - Patroni / repmgr for PostgreSQL HA
   - Leader election mechanisms
   - Split-brain prevention
@@ -120,7 +128,7 @@ This document tracks database scaling methods and patterns to implement in this 
 
 ### Multi-Tenancy Patterns
 
-- [ ] **Shared Database, Shared Schema**
+- [x] **Shared Database, Shared Schema** - `simulate_multitenancy_shared_schema/`
   - Tenant ID column approach
   - Row-level security (RLS)
 
@@ -155,12 +163,12 @@ This document tracks database scaling methods and patterns to implement in this 
 3. ~~Database Query Caching~~ ✅
 4. ~~Read-Write Splitting~~ ✅
 
-### Medium Priority (Advanced scaling) — next up
+### Medium Priority (Advanced scaling) — ✅ done
 
-5. Consistent Hashing
-6. CQRS
-7. Automatic Failover
-8. Multi-Tenancy (Shared Schema)
+5. ~~Consistent Hashing~~ ✅
+6. ~~CQRS~~ ✅
+7. ~~Automatic Failover~~ ✅
+8. ~~Multi-Tenancy (Shared Schema)~~ ✅
 
 ### Lower Priority (Specialized use cases)
 
