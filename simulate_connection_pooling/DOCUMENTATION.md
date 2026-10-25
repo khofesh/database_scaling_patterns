@@ -64,7 +64,7 @@ pgbouncer:
 | `POOL_MODE: transaction`   | Returns a server conn to the pool after each txn | Highest practical throughput; the common production default |
 | `MAX_CLIENT_CONN: 1000`    | How many clients may connect to PgBouncer        | The "cheap" side — can be huge                              |
 | `DEFAULT_POOL_SIZE: 5`     | Server connections per (user, database)          | The "expensive" side — kept small to protect the server     |
-| `AUTH_TYPE: scram-sha-256` | How clients authenticate to PgBouncer            | Matches PostgreSQL 18's default password encryption         |
+| `AUTH_TYPE: scram-sha-256` | Authentication protocol between clients/PgBouncer and PgBouncer/backend | PgBouncer must speak SCRAM to the backend because the `postgres` role's stored password is a SCRAM verifier (the PG18 default is `password_encryption = scram-sha-256`) |
 | `ADMIN_USERS: postgres`    | Who may use the admin console                    | Lets us run `SHOW POOLS`                                    |
 | `ports: "6432:5432"`       | Exposes the pooler                               | The "pooled" path connects here                             |
 
@@ -75,8 +75,9 @@ pgbouncer:
 
 ## Schema (init/01_create_schema.sql)
 
-A 50-row `accounts` table. The workload is intentionally trivial (`pg_sleep`,
-counts) so the variable under test is **connection handling**, not query cost.
+A 50-row `accounts` table is seeded, but `main.go` never touches it — the workload
+is intentionally trivial (only `SELECT pg_sleep(...)`) so the variable under test is
+**connection handling**, not query cost.
 
 ---
 

@@ -55,8 +55,10 @@ events(global_seq PK, aggregate_id, version, event_type, payload JSONB, created_
 snapshots(aggregate_id, version, state JSONB, created_at, PRIMARY KEY(aggregate_id, version))
 ```
 
-- **`events`** is INSERT-only. It is never UPDATEd or DELETEd — that immutability is
-  the whole point.
+- **`events`** is treated as INSERT-only — the application never UPDATEs or DELETEs
+  log rows. Nothing in the schema itself enforces this; production systems often add
+  a trigger (or `REVOKE UPDATE, DELETE`) to make immutability a hard guarantee.
+  (The demo's own `DELETE FROM events …` is only the reset so re-runs start clean.)
 - **`UNIQUE (aggregate_id, version)`** is the load-bearing constraint. Each aggregate
   has exactly one event at version 1, one at version 2, and so on. Two writers that
   both try to write version `N` will collide here, giving us **lock-free optimistic

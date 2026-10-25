@@ -63,10 +63,10 @@ go run main.go
 
 ## Expected Output
 
-Writes are routed to the primary and reads to alternating replicas. A fresh write
-followed by a consistent read is served from the **primary** (replicas not caught
-up yet); a moment later the same read is served from a **replica**. Routing
-counters are printed at the end.
+Writes are routed to the primary and reads to alternating replicas. After a write, a
+consistent read is served from a replica that has caught up to the write's LSN — on a
+LAN that's usually the very next read. The router only falls back to the **primary**
+when no replica has replayed that far yet. Routing counters are printed at the end.
 
 ## App-level Router vs Proxy
 

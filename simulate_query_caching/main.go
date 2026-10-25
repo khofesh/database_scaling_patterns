@@ -23,10 +23,10 @@ type Product struct {
 
 // Cache wraps the database and Redis and implements the cache-aside pattern.
 type Cache struct {
-	db    *pgxpool.Pool
-	rdb   *redis.Client
-	ttl   time.Duration
-	hits  int
+	db     *pgxpool.Pool
+	rdb    *redis.Client
+	ttl    time.Duration
+	hits   int
 	misses int
 }
 
@@ -62,9 +62,13 @@ func (c *Cache) GetProduct(ctx context.Context, id int) (*Product, time.Duration
 		return nil, time.Since(start), err
 	}
 
-	// 3. Populate the cache for next time.
+	// 3. Populate the cache for next time. A cache-write failure is not fatal —
+	// the value is served from the DB — but it should be visible, otherwise a
+	// stale entry from an earlier failed write-through could linger silently.
 	if data, jsonErr := json.Marshal(p); jsonErr == nil {
-		c.rdb.Set(ctx, cacheKey(id), data, c.ttl)
+		if setErr := c.rdb.Set(ctx, cacheKey(id), data, c.ttl).Err(); setErr != nil {
+			log.Printf("cache populate failed (serving from DB): %v", setErr)
+		}
 	}
 	return &p, time.Since(start), nil
 }
@@ -80,7 +84,13 @@ func (c *Cache) UpdatePriceWriteThrough(ctx context.Context, id int, price float
 		return err
 	}
 	if data, jsonErr := json.Marshal(p); jsonErr == nil {
-		c.rdb.Set(ctx, cacheKey(id), data, c.ttl)
+		// Propagate the cache-write error: if this SET fails, the old price stays
+		// in the cache and the "write-through keeps the cache fresh" guarantee is
+		// silently broken. Failing loudly (or at least visibly) beats serving
+		// stale data without a trace.
+		if err := c.rdb.Set(ctx, cacheKey(id), data, c.ttl).Err(); err != nil {
+			return fmt.Errorf("write-through: db updated but cache write failed: %w", err)
+		}
 	}
 	return nil
 }

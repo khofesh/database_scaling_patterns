@@ -175,7 +175,10 @@ func (a *App) printPlacement(ctx context.Context) {
 		var name, tablespace string
 		rows.Scan(&name, &tablespace)
 		var n int
-		a.db.QueryRow(ctx, fmt.Sprintf("SELECT count(*) FROM %s", name)).Scan(&n)
+		if err := a.db.QueryRow(ctx, fmt.Sprintf("SELECT count(*) FROM %s", name)).Scan(&n); err != nil {
+			log.Printf("count %s: %v", name, err)
+			continue
+		}
 		fmt.Printf("   %-16s %-10s %d rows\n", name, tablespace, n)
 	}
 }

@@ -25,9 +25,12 @@ Each physical node is placed at many points on the ring as **virtual nodes
 
 1. **The hash ring** — nodes and keys share one 32-bit CRC space.
 2. **Virtual nodes** — 1000 vnodes per node for even load.
-3. **Minimal data movement** — adding node4 re-homes only ~1/4 of keys.
+3. **Minimal data movement** — adding node4 re-homes roughly **1/N** of keys
+   (18.0% for the fixed dataset in the demo, vs ~25% ideal for 3→4 nodes).
 4. **Modulo comparison** — `key % N` reshuffles most keys on resize.
-5. **Real persistence** — each key is stored on its owning PostgreSQL node.
+5. **Real persistence** — the demo writes each key to its ring-owning PostgreSQL
+   node (for the initial 3-node placement; node4 is added only to *measure* churn,
+   the already-written keys aren't re-homed).
 
 ### Architecture
 
@@ -59,8 +62,8 @@ go run main.go
 ## Expected Output
 
 Keys distribute fairly evenly across 3 nodes. Adding node4 re-homes about
-**25%** of keys (consistent hashing), versus **~75%** for `key % N` modulo
-sharding — printed side by side.
+**18%** of keys for this dataset (consistent hashing moves ~1/N, ideally 25% for
+3→4 nodes), versus **~75%** for `key % N` modulo sharding — printed side by side.
 
 ## Consistent Hashing vs Modulo Sharding
 

@@ -102,8 +102,11 @@ func (s *Store) load(ctx context.Context, id string) (*Account, int, error) {
 // committed that version, the UNIQUE(aggregate_id, version) constraint rejects us
 // and we surface ErrConcurrency — optimistic concurrency control with no locks.
 func (s *Store) append(ctx context.Context, id string, expectedVersion int, eventType string, payload map[string]any) error {
-	data, _ := json.Marshal(payload)
-	_, err := s.db.Exec(ctx,
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal event: %w", err)
+	}
+	_, err = s.db.Exec(ctx,
 		`INSERT INTO events (aggregate_id, version, event_type, payload)
 		 VALUES ($1, $2, $3, $4)`,
 		id, expectedVersion+1, eventType, data)
@@ -118,8 +121,11 @@ func (s *Store) append(ctx context.Context, id string, expectedVersion int, even
 // snapshot folds the full current state and caches it, so future loads can skip
 // replaying everything before this version.
 func (s *Store) snapshot(ctx context.Context, acc *Account) error {
-	data, _ := json.Marshal(acc)
-	_, err := s.db.Exec(ctx,
+	data, err := json.Marshal(acc)
+	if err != nil {
+		return fmt.Errorf("marshal snapshot: %w", err)
+	}
+	_, err = s.db.Exec(ctx,
 		`INSERT INTO snapshots (aggregate_id, version, state) VALUES ($1, $2, $3)
 		 ON CONFLICT (aggregate_id, version) DO NOTHING`,
 		acc.ID, acc.Version, data)

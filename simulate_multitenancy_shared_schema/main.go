@@ -104,7 +104,7 @@ func main() {
 	var n int
 	err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM documents").Scan(&n)
 	if err != nil {
-		fmt.Println("   SELECT with no tenant context → error (current_setting unset) ✅")
+		fmt.Println("   SELECT with no tenant context → error (RLS fails closed) ✅")
 	} else {
 		fmt.Printf("   ⚠️ returned %d rows with no tenant set — policy too loose\n", n)
 	}

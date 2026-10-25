@@ -50,7 +50,7 @@ sequenceDiagram
 | Strategy               | On write...                       | Staleness window         | Used here in              |
 | ---------------------- | --------------------------------- | ------------------------ | ------------------------- |
 | **Cache-aside**        | (nothing special)                 | up to the TTL            | `GetProduct`              |
-| **Write-through**      | write DB **and** cache            | none for that key        | `UpdatePriceWriteThrough` |
+| **Write-through**      | write DB **and** cache            | tiny window between DB commit and cache SET (single-threaded demo eliminates it) | `UpdatePriceWriteThrough` |
 | **Write + invalidate** | write DB, delete cache key        | none (next read reloads) | `UpdatePriceInvalidate`   |
 | **TTL expiry**         | entry self-destructs after N secs | bounded by TTL           | `demonstrateTTL`          |
 

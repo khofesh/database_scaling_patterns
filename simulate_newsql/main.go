@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -154,20 +155,27 @@ func retryTxn(ctx context.Context, pool *pgxpool.Pool, fn func(pgx.Tx) error) er
 }
 
 // concurrentTransfers fires several transfers in parallel to provoke serialization
-// conflicts and show retryTxn resolving them without lost updates.
+// conflicts and show retryTxn resolving them without lost updates. It reports how
+// many actually committed — a transfer can still fail for reasons other than a
+// retriable conflict (e.g. insufficient funds or cluster throttling), and the demo
+// must not claim successes it didn't have.
 func concurrentTransfers(ctx context.Context, pool *pgxpool.Pool) {
 	var wg sync.WaitGroup
+	var committed atomic.Int64
 	for i := 0; i < 8; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			if err := transfer(ctx, pool, "bob", "alice", 100); err != nil {
 				log.Printf("   concurrent transfer error: %v", err)
+				return
 			}
+			committed.Add(1)
 		}()
 	}
 	wg.Wait()
-	fmt.Println("   8 concurrent $1 transfers committed — no lost updates (serializable).")
+	fmt.Printf("   %d of 8 concurrent $1 transfers committed — no lost updates (serializable).\n",
+		committed.Load())
 }
 
 // --- introspection ------------------------------------------------------------

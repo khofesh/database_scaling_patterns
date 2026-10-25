@@ -50,7 +50,7 @@ type FailoverManager struct {
     current    *pgxpool.Pool  // whoever is the writable primary right now
     standby    *pgxpool.Pool  // promoted on failover
     failThresh int            // consecutive failures before failover
-    probeEvery, probeTimout time.Duration
+    probeEvery, probeTimeout time.Duration
 }
 ```
 
@@ -61,7 +61,7 @@ successful promotion it is swapped to point at the (former) standby.
 
 ```go
 func (m *FailoverManager) healthy(ctx) bool {
-    cctx, cancel := context.WithTimeout(ctx, m.probeTimout)
+    cctx, cancel := context.WithTimeout(ctx, m.probeTimeout)
     defer cancel()
     return m.current.QueryRow(cctx, "SELECT 1").Scan(&one) == nil
 }
@@ -115,7 +115,9 @@ command instead.
 
 1. Write a row to the primary; wait a second; confirm the **standby replicated** it.
 2. `docker stop` the primary.
-3. The probe loop logs `OK` until the stop, then logs failures `1/3, 2/3, 3/3`.
+3. The probe loop health-checks the primary every `probeEvery`. Because the crash
+   is simulated *before* the loop starts, every probe fails: `1/3, 2/3, 3/3`
+   (in a live system it would log `OK` until the crash).
 4. On the 3rd failure, `pg_promote()` runs; the standby becomes writable.
 5. A post-failover write succeeds; the final count includes the pre-crash row →
    **no data lost**.

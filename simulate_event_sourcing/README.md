@@ -16,8 +16,9 @@ state by replaying them.
 This project models a bank account and demonstrates the four ideas that make event
 sourcing work in practice:
 
-1. **Append-only log** — every command produces an immutable event; nothing is ever
-   UPDATEd or DELETEd.
+1. **Append-only log** — every command produces an immutable event; the application
+   never UPDATEs or DELETEs log rows (the demo's only DELETE is its own reset so
+   re-runs start clean).
 2. **State reconstruction (replay)** — `state(n) = apply(state(n-1), event(n))`. The
    balance is a fold over the log.
 3. **Snapshots** — a cached fold so loads don't replay the entire history; pure

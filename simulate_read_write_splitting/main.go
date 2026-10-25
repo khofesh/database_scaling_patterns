@@ -72,10 +72,16 @@ func (r *Router) Write(ctx context.Context, sql string, args ...any) (string, er
 }
 
 // Read runs a query on a replica (round-robin). Use for data that tolerates a
-// little staleness.
+// little staleness. If no replicas are configured it falls back to the primary
+// (the counter reflects where the read actually went).
 func (r *Router) Read(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	pool := r.pickReplica()
+	if pool == r.primary {
+		r.readsFromPrimary.Add(1)
+		return r.primary.Query(ctx, sql, args...)
+	}
 	r.readsFromReplica.Add(1)
-	return r.pickReplica().Query(ctx, sql, args...)
+	return pool.Query(ctx, sql, args...)
 }
 
 // ConsistentRead enforces read-your-writes. Given the LSN from a prior Write, it

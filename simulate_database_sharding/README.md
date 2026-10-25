@@ -12,7 +12,7 @@ This project demonstrates **horizontal database sharding** - distributing data a
 
 ### Key Concepts Demonstrated
 
-1. **Hash-based Sharding**: Users are distributed across shards using consistent hashing on user ID
+1. **Hash-based Sharding**: Users are distributed across shards using FNV-1a hashing (modulo shard count) on user ID
 2. **Data Co-location**: Orders are stored on the same shard as their associated user
 3. **Shard Manager**: Application-level routing to direct queries to the correct shard
 4. **Scatter-Gather Queries**: Querying all shards in parallel when the shard key is unknown

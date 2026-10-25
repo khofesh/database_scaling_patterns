@@ -104,7 +104,7 @@ WHERE o.id = $1 GROUP BY ...
 | read unprocessed events   | Pull the backlog in order                     | Process changes once, in sequence              |
 | JOIN + aggregate write DB | Compute the flat summary from normalized data | The read model is _derived_, not authoritative |
 | `INSERT ... ON CONFLICT`  | Upsert the denormalized row in the read store | First projection inserts; later ones update    |
-| mark `processed`          | Advance the outbox cursor                     | Idempotent, resumable, no double-apply         |
+| mark `processed`          | Advance the outbox cursor                     | Idempotent, resumable; the upsert makes re-application safe |
 
 In production this loop runs continuously (or is driven by `LISTEN/NOTIFY` / a
 log-based CDC stream). Here we call `Project()` explicitly so the consistency gap
