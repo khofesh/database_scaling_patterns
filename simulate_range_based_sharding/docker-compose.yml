@@ -1,0 +1,59 @@
+services:
+  # Four identical PostgreSQL shards. shard1-3 own date ranges from the start;
+  # shard4 starts empty and receives half of a range when the demo SPLITS it.
+  shard1:
+    image: postgres:18-bookworm
+    container_name: rangeshard_shard1
+    environment: &pg_env
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    ports:
+      - "5514:5432"
+    volumes:
+      - rangeshard_shard1_data:/var/lib/postgresql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck: &pg_health
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  shard2:
+    image: postgres:18-bookworm
+    container_name: rangeshard_shard2
+    environment: *pg_env
+    ports:
+      - "5515:5432"
+    volumes:
+      - rangeshard_shard2_data:/var/lib/postgresql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck: *pg_health
+
+  shard3:
+    image: postgres:18-bookworm
+    container_name: rangeshard_shard3
+    environment: *pg_env
+    ports:
+      - "5516:5432"
+    volumes:
+      - rangeshard_shard3_data:/var/lib/postgresql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck: *pg_health
+
+  shard4:
+    image: postgres:18-bookworm
+    container_name: rangeshard_shard4
+    environment: *pg_env
+    ports:
+      - "5517:5432"
+    volumes:
+      - rangeshard_shard4_data:/var/lib/postgresql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck: *pg_health
+
+volumes:
+  rangeshard_shard1_data:
+  rangeshard_shard2_data:
+  rangeshard_shard3_data:
+  rangeshard_shard4_data:

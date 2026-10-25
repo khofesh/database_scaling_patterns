@@ -1,0 +1,25 @@
+services:
+  # A single PostgreSQL instance with 1M orders and 100k room reservations.
+  # The Go program creates and drops every index itself, so each one can be
+  # measured before/after.
+  postgres:
+    image: postgres:18-bookworm
+    container_name: indexing_pg
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    ports:
+      - "5530:5432"
+    volumes:
+      - indexing_data:/var/lib/postgresql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      # TCP check: stays unhealthy until first-boot seeding has finished.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d app"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  indexing_data:

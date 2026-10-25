@@ -1,0 +1,84 @@
+services:
+  # Primary - receives writes through HAProxy's :5000 endpoint.
+  pg_primary:
+    image: postgres:18-bookworm
+    container_name: lb_primary
+    command: ["postgres", "-c", "wal_keep_size=256MB", "-c", "cluster_name=primary"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app_db
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - lb_primary_data:/var/lib/postgresql/data
+      - ./init/primary:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Two streaming read replicas behind HAProxy's :5001 endpoint. Note that NO
+  # PostgreSQL port is published: clients only ever talk to the load balancer.
+  pg_replica1:
+    image: postgres:18-bookworm
+    container_name: lb_replica1
+    environment:
+      PGDATA: /var/lib/postgresql/data
+      PRIMARY_HOST: pg_primary
+      REPLICATOR_PASSWORD: replicator
+      NODE_NAME: replica1
+    volumes:
+      - lb_replica1_data:/var/lib/postgresql/data
+      - ./init/replica-entrypoint.sh:/replica-entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/replica-entrypoint.sh"]
+    depends_on:
+      pg_primary:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pg_replica2:
+    image: postgres:18-bookworm
+    container_name: lb_replica2
+    environment:
+      PGDATA: /var/lib/postgresql/data
+      PRIMARY_HOST: pg_primary
+      REPLICATOR_PASSWORD: replicator
+      NODE_NAME: replica2
+    volumes:
+      - lb_replica2_data:/var/lib/postgresql/data
+      - ./init/replica-entrypoint.sh:/replica-entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/replica-entrypoint.sh"]
+    depends_on:
+      pg_primary:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # HAProxy - the single address clients connect to.
+  haproxy:
+    image: haproxy:3.2-alpine
+    container_name: lb_haproxy
+    ports:
+      - "5506:5000"   # write endpoint
+      - "5507:5001"   # read endpoint
+      - "8404:8404"   # stats dashboard
+    volumes:
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      pg_replica1:
+        condition: service_healthy
+      pg_replica2:
+        condition: service_healthy
+
+volumes:
+  lb_primary_data:
+  lb_replica1_data:
+  lb_replica2_data:

@@ -1,0 +1,68 @@
+services:
+  # FEDERATION / functional partitioning: one database per business domain.
+  # Each could be scaled, tuned, backed up and owned independently.
+  users_db:
+    image: postgres:18-bookworm
+    container_name: federation_users
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: users
+    ports:
+      - "5522:5432"
+    volumes:
+      - federation_users_data:/var/lib/postgresql
+      - ./init/users:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d users"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  orders_db:
+    image: postgres:18-bookworm
+    container_name: federation_orders
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: orders
+    ports:
+      - "5523:5432"
+    volumes:
+      - federation_orders_data:/var/lib/postgresql
+      - ./init/orders:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d orders"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Analytics reaches into the other two over postgres_fdw, so it must start after
+  # they're ready (IMPORT FOREIGN SCHEMA connects to them during init).
+  analytics_db:
+    image: postgres:18-bookworm
+    container_name: federation_analytics
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: analytics
+    ports:
+      - "5524:5432"
+    volumes:
+      - federation_analytics_data:/var/lib/postgresql
+      - ./init/analytics:/docker-entrypoint-initdb.d
+    depends_on:
+      users_db:
+        condition: service_healthy
+      orders_db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d analytics"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  federation_users_data:
+  federation_orders_data:
+  federation_analytics_data:

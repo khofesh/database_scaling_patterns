@@ -1,0 +1,67 @@
+services:
+  # The directory: a small, hot, read-mostly database mapping tenant → shard.
+  # In production it is replicated and heavily cached; here a single node suffices.
+  directory:
+    image: postgres:18-bookworm
+    container_name: dirshard_directory
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: directory
+    ports:
+      - "5510:5432"
+    volumes:
+      - dirshard_directory_data:/var/lib/postgresql
+      - ./init/directory:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d directory"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Three data shards with identical schemas.
+  shard1:
+    image: postgres:18-bookworm
+    container_name: dirshard_shard1
+    environment: &shard_env
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    ports:
+      - "5511:5432"
+    volumes:
+      - dirshard_shard1_data:/var/lib/postgresql
+      - ./init/shard:/docker-entrypoint-initdb.d
+    healthcheck: &shard_health
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  shard2:
+    image: postgres:18-bookworm
+    container_name: dirshard_shard2
+    environment: *shard_env
+    ports:
+      - "5512:5432"
+    volumes:
+      - dirshard_shard2_data:/var/lib/postgresql
+      - ./init/shard:/docker-entrypoint-initdb.d
+    healthcheck: *shard_health
+
+  shard3:
+    image: postgres:18-bookworm
+    container_name: dirshard_shard3
+    environment: *shard_env
+    ports:
+      - "5513:5432"
+    volumes:
+      - dirshard_shard3_data:/var/lib/postgresql
+      - ./init/shard:/docker-entrypoint-initdb.d
+    healthcheck: *shard_health
+
+volumes:
+  dirshard_directory_data:
+  dirshard_shard1_data:
+  dirshard_shard2_data:
+  dirshard_shard3_data:

@@ -1,0 +1,47 @@
+services:
+  # server_a: shared server for standard tenants (one DATABASE each) + the control
+  # plane catalogue. max_connections is deliberately low so the demo can show the
+  # main scaling limit of this model: one connection pool per tenant database.
+  server_a:
+    image: postgres:18-bookworm
+    container_name: mt_db_server_a
+    command: ["postgres", "-c", "max_connections=60"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: control
+    ports:
+      - "5533:5432"
+    volumes:
+      - mt_db_server_a_data:/var/lib/postgresql
+      - ./init/01_template.sh:/docker-entrypoint-initdb.d/01_template.sh:ro
+      - ./init/02_control.sql:/docker-entrypoint-initdb.d/02_control.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d control"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # server_b: dedicated server for premium tenants (and the target when a tenant is
+  # moved off the shared server).
+  server_b:
+    image: postgres:18-bookworm
+    container_name: mt_db_server_b
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5534:5432"
+    volumes:
+      - mt_db_server_b_data:/var/lib/postgresql
+      - ./init/01_template.sh:/docker-entrypoint-initdb.d/01_template.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mt_db_server_a_data:
+  mt_db_server_b_data:

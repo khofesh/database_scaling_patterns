@@ -1,0 +1,23 @@
+services:
+  # One PostgreSQL database; every tenant gets its OWN SCHEMA (namespace) with its
+  # own copy of the tables. Routing = choosing the schema per request.
+  postgres:
+    image: postgres:18-bookworm
+    container_name: mt_schema_pg
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: saas
+    ports:
+      - "5532:5432"
+    volumes:
+      - mt_schema_data:/var/lib/postgresql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d saas"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mt_schema_data:
