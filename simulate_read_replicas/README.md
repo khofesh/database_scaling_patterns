@@ -28,21 +28,13 @@ it.
 
 ### Architecture
 
-```
-                    ┌──────────────────────┐
-        writes ───► │   Primary (5436)     │
-                    │   - accepts writes   │
-                    └──────────┬───────────┘
-                       streams WAL (async)
-                  ┌────────────┴────────────┐
-                  ▼                          ▼
-        ┌──────────────────┐      ┌──────────────────┐
-        │ Replica 1 (5437) │      │ Replica 2 (5438) │
-        │  read-only       │      │  read-only       │
-        └──────────────────┘      └──────────────────┘
-                  ▲                          ▲
-                  └──────── reads ───────────┘
-                     (round-robin)
+```mermaid
+flowchart TB
+    W["writes"] --> P[("Primary :5436<br/>accepts writes")]
+    P -- "streams WAL (async)" --> R1[("Replica 1 :5437<br/>read-only")]
+    P -- "streams WAL (async)" --> R2[("Replica 2 :5438<br/>read-only")]
+    RD["reads (round-robin)"] --> R1
+    RD --> R2
 ```
 
 ## How to Run

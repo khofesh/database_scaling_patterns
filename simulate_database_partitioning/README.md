@@ -14,6 +14,29 @@ A demonstration of PostgreSQL table partitioning strategies using Docker and Go.
 2. **Hash Partitioning** - Users table partitioned by user ID (4 partitions)
 3. **List Partitioning** - Products table partitioned by category
 
+### Architecture
+
+```mermaid
+flowchart TB
+    subgraph Range["RANGE (order_date) — quarterly"]
+        O["orders"] --> O1["orders_2024_q1"]
+        O --> O2["…"]
+        O --> O3["orders_2026_q2"]
+    end
+    subgraph Hash["HASH (id) — MODULUS 4"]
+        U["users"] --> U0["users_p0"]
+        U --> U1["users_p1"]
+        U --> U2["users_p2"]
+        U --> U3["users_p3"]
+    end
+    subgraph List["LIST (category)"]
+        P["products"] --> P1["products_electronics<br/>electronics, computers, phones"]
+        P --> P2["products_clothing<br/>clothing, shoes, accessories"]
+        P --> P3["products_home<br/>furniture, kitchen, garden"]
+        P --> P4["products_other<br/>DEFAULT"]
+    end
+```
+
 ## Quick Start
 
 ```bash

@@ -38,12 +38,13 @@ used throughout this repo connects to it unchanged.
 
 ### Architecture
 
-```
-        ┌──────────┐   ┌──────────┐   ┌──────────┐
-        │  roach1  │◄─►│  roach2  │◄─►│  roach3  │   equal peers, gossip + Raft
-        └────┬─────┘   └──────────┘   └──────────┘
-             │ :26257 (SQL)                         every range replicated 3×
-   app (pgx) ┘  one logical SQL database
+```mermaid
+flowchart LR
+    App["app (pgx)<br/>one logical SQL database"] -- ":26257 (SQL)" --> R1
+    subgraph Cluster["CockroachDB cluster — every range replicated 3×"]
+        R1[("roach1")] <--> R2[("roach2")] <--> R3[("roach3")]
+        R3 <--> R1
+    end
 ```
 
 ## How to Run

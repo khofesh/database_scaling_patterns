@@ -31,17 +31,20 @@ Each physical node is placed at many points on the ring as **virtual nodes
 
 ### Architecture
 
-```
-                 hash ring (0 .. 2^32-1)
-                ┌───────────────────────┐
-        key ───►│  •n2  •n1   •n3  •n1   │  key owned by first
-                │ •n3        •n2    •n1  │  vnode clockwise
-                │   •n1  •n3    •n2  •n3 │
-                └───────────────────────┘
-                  1000 vnodes per node
-
-   node1:5450   node2:5451   node3:5452   node4:5453 (added mid-demo)
-   each is a plain PostgreSQL holding the keys that hash to it
+```mermaid
+flowchart TB
+    K["key"] -- "hash(key) → 0 .. 2^32-1" --> R
+    subgraph R["hash ring (1000 vnodes per node)"]
+        direction LR
+        V1["vnode n2"] --> V2["vnode n1"] --> V3["vnode n3"] --> V4["vnode n1"] --> V5["…"] --> V1
+    end
+    R -- "first vnode clockwise owns the key" --> N
+    subgraph N["physical nodes (plain PostgreSQL)"]
+        N1[("node1 :5450")]
+        N2[("node2 :5451")]
+        N3[("node3 :5452")]
+        N4[("node4 :5453<br/>added mid-demo")]
+    end
 ```
 
 ## How to Run

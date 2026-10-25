@@ -31,14 +31,18 @@ sourcing work in practice:
 
 ### Architecture
 
-```
-  COMMAND ──► load (snapshot + replay tail) ──► validate ──► append event
-                                                                  │
-                            ┌──────────── eventstore (5490) ──────▼─────┐
-                            │ events    (append-only, UNIQUE(id,version))│
-                            │ snapshots (cached fold, optimization only) │
-                            └────────────────────────────────────────────┘
-  QUERY  ──► load ──► replay events in version order ──► derived Account state
+```mermaid
+flowchart LR
+    C["COMMAND"] --> L1["load<br/>(snapshot + replay tail)"] --> V["validate"] --> A["append event"]
+    subgraph ES["eventstore :5490"]
+        EV[("events<br/>append-only, UNIQUE(id, version)")]
+        SN[("snapshots<br/>cached fold, optimization only")]
+    end
+    A --> EV
+    Q["QUERY"] --> L2["load"] --> RP["replay events<br/>in version order"] --> S["derived Account state"]
+    EV --> L1
+    SN --> L1
+    EV --> RP
 ```
 
 ## How to Run

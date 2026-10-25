@@ -6,6 +6,31 @@
 - **Container**: Docker Compose
 - **Database**: PostgreSQL 18 (and CockroachDB v26.2 for the NewSQL example)
 
+## Pattern Map
+
+```mermaid
+mindmap
+  root((Database<br/>Scaling))
+    Read scaling
+      Read Replicas
+      Read-Write Splitting
+      Query Caching
+      CQRS
+    Write / data scaling
+      Partitioning
+      Sharding
+      Consistent Hashing
+      NewSQL
+    Connections
+      Connection Pooling
+    Availability
+      Automatic Failover
+    Data modeling
+      Event Sourcing
+      Multi-tenancy Shared Schema
+      Data Tiering
+```
+
 ## Projects
 
 - **[simulate_database_partitioning](./simulate_database_partitioning)** - Demonstrates PostgreSQL table partitioning strategies

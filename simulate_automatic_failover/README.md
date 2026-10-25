@@ -32,17 +32,35 @@ outage get detected and recovered with no data loss.
 
 ### Architecture
 
+```mermaid
+flowchart TB
+    FM["Failover Manager (Go)<br/>SELECT 1 on primary every 1s<br/>3 consecutive failures → pg_promote()"]
+    P[("Primary :5470<br/>(stopped mid-demo)")]
+    S[("Standby :5471<br/>→ NEW PRIMARY")]
+    FM -- health probes --> P
+    FM -- "pg_promote()" --> S
+    P -- "streams WAL" --> S
 ```
-        ┌──────────────── Failover Manager (Go) ────────────────┐
-        │ loop: SELECT 1 on primary every 1s                    │
-        │ 3 consecutive failures → pg_promote(standby)          │
-        │ wait pg_is_in_recovery()=false → route writes to it   │
-        └───────────────┬───────────────────────┬───────────────┘
-                        │ probes                 │ promote
-              ┌─────────▼────────┐     stream    ┌▼─────────────────┐
-              │ Primary  :5470   │ ────WAL────►  │ Standby  :5471   │
-              │ (stopped mid-demo)│               │ → NEW PRIMARY    │
-              └──────────────────┘               └──────────────────┘
+
+```mermaid
+sequenceDiagram
+    participant FM as Failover Manager
+    participant P as Primary :5470
+    participant S as Standby :5471
+    loop every 1s
+        FM->>P: SELECT 1
+        P-->>FM: ok
+    end
+    Note over P: container stopped
+    FM-xP: SELECT 1 (fail 1/3)
+    FM-xP: SELECT 1 (fail 2/3)
+    FM-xP: SELECT 1 (fail 3/3)
+    FM->>S: SELECT pg_promote()
+    loop until promoted
+        FM->>S: SELECT pg_is_in_recovery()
+    end
+    S-->>FM: false
+    Note over FM,S: writes now routed to the new primary
 ```
 
 ## How to Run

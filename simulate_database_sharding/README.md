@@ -20,22 +20,15 @@ This project demonstrates **horizontal database sharding** - distributing data a
 
 ### Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Go Application                         │
-│                     (Shard Manager)                         │
-│                                                             │
-│   hash(user_id) % 3 = 0   │ = 1          │ = 2             │
-└───────────┬───────────────┼──────────────┼─────────────────┘
-            │               │              │
-            ▼               ▼              ▼
-     ┌──────────┐    ┌──────────┐   ┌──────────┐
-     │ Shard 1  │    │ Shard 2  │   │ Shard 3  │
-     │ Port 5433│    │ Port 5434│   │ Port 5435│
-     │          │    │          │   │          │
-     │ - users  │    │ - users  │   │ - users  │
-     │ - orders │    │ - orders │   │ - orders │
-     └──────────┘    └──────────┘   └──────────┘
+```mermaid
+flowchart TB
+    App["Go Application<br/>(Shard Manager)"]
+    S1[("Shard 1 :5433<br/>users, orders")]
+    S2[("Shard 2 :5434<br/>users, orders")]
+    S3[("Shard 3 :5435<br/>users, orders")]
+    App -- "hash(user_id) % 3 = 0" --> S1
+    App -- "= 1" --> S2
+    App -- "= 2" --> S3
 ```
 
 ## How to Run

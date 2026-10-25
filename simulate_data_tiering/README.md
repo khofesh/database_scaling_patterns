@@ -37,15 +37,17 @@ This project combines two native PostgreSQL features:
 
 ### Architecture
 
-```
-                        events  (partitioned by month)
-        ┌───────────────┬───────────────┬───────────────┐
-   events_2026_06   events_2026_05   …   events_2026_02
-        │                │                    │
-   ┌────▼────┐      ┌────▼────┐          ┌────▼────┐
-   │ hot_tier│      │warm_tier│          │cold_tier│   ← ALTER TABLE SET TABLESPACE
-   │ (NVMe)  │      │  (SSD)  │          │  (HDD)  │
-   └─────────┘      └─────────┘          └─────────┘
+```mermaid
+flowchart TB
+    E["events<br/>(partitioned by month)"]
+    E --> P1["events_2026_06<br/>current month"]
+    E --> P2["events_2026_05<br/>1–2 months old"]
+    E --> P3["events_2026_02<br/>older"]
+    P1 --> H[("hot_tier<br/>NVMe")]
+    P2 --> W[("warm_tier<br/>SSD")]
+    P3 --> C[("cold_tier<br/>HDD")]
+    J["tiering job<br/>ALTER TABLE … SET TABLESPACE"] -. "moves aging partitions down" .-> W
+    J -.-> C
 ```
 
 ## How to Run

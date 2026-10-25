@@ -32,19 +32,24 @@ has caught up — otherwise it falls back to the primary.
 
 ### Architecture
 
-```
-                    ┌────────────────────────────────────┐
-                    │            Router (Go)             │
-   app calls ─────► │  Write()  ─────────────► primary   │
-                    │  Read()   ──┐                       │
-                    │  Consistent │  picks replica iff    │
-                    │  Read(lsn)  │  replay_lsn >= lsn,    │
-                    └─────────────┼──── else primary ─────┘
-                                  ▼
-        ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-        │ Primary 5442 │──►│ Replica 5443 │   │ Replica 5444 │
-        │  (writes)    │   │   (reads)    │   │   (reads)    │
-        └──────────────┘   └──────────────┘   └──────────────┘
+```mermaid
+flowchart TB
+    App["app calls"] --> Router
+    subgraph Router["Router (Go)"]
+        WR["Write()"]
+        RE["Read()"]
+        CR{"ConsistentRead(lsn)<br/>replica replay_lsn >= lsn?"}
+    end
+    P[("Primary :5442<br/>writes")]
+    R1[("Replica :5443<br/>reads")]
+    R2[("Replica :5444<br/>reads")]
+    WR --> P
+    RE --> R1
+    RE --> R2
+    CR -- yes --> R1
+    CR -- no --> P
+    P -- WAL --> R1
+    P -- WAL --> R2
 ```
 
 ## How to Run
