@@ -347,7 +347,7 @@ func demonstrateRangePartitioning(ctx context.Context, pool *pgxpool.Pool) {
 | `{"2024-01-15", 1, 150.00, "completed"}` | Order from Q1 2024 → goes to `orders_2024_q1` partition |
 | `pool.Exec(ctx, ...)`                    | Executes INSERT statement                               |
 | `$1, $2, $3, $4`                         | Parameterized query (prevents SQL injection)            |
-| `ON CONFLICT DO NOTHING`                 | Ignores duplicate inserts (idempotent)                  |
+| `ON CONFLICT DO NOTHING`                 | Ignores duplicate inserts; combined with the `TRUNCATE … RESTART IDENTITY` at startup, re-running the demo is idempotent |
 
 **Partition routing:** PostgreSQL automatically routes each order to the correct partition based on `order_date`.
 

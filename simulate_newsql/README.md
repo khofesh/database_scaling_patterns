@@ -38,12 +38,13 @@ used throughout this repo connects to it unchanged.
 
 ### Architecture
 
-```
-        ┌──────────┐   ┌──────────┐   ┌──────────┐
-        │  roach1  │◄─►│  roach2  │◄─►│  roach3  │   equal peers, gossip + Raft
-        └────┬─────┘   └──────────┘   └──────────┘
-             │ :26257 (SQL)                         every range replicated 3×
-   app (pgx) ┘  one logical SQL database
+```mermaid
+flowchart LR
+    App["app (pgx)<br/>one logical SQL database"] -- ":26257 (SQL)" --> R1
+    subgraph Cluster["CockroachDB cluster — every range replicated 3×"]
+        R1[("roach1")] <--> R2[("roach2")] <--> R3[("roach3")]
+        R3 <--> R1
+    end
 ```
 
 ## How to Run
@@ -61,8 +62,8 @@ DB Console UI: <http://localhost:8090>
 
 The table is created with plain SQL and is automatically split into ranges replicated
 across nodes `[1 2 3]`. A transfer runs as a single serializable distributed
-transaction; eight concurrent transfers commit with no lost updates. The program then
-explains how to test fault tolerance live.
+transaction; concurrent transfers are auto-retried and the program reports exactly how
+many committed. The program then explains how to test fault tolerance live.
 
 ### Verify fault tolerance yourself
 
@@ -74,7 +75,13 @@ docker compose start roach2  # bring it back; it re-syncs automatically
 
 ## Notes on "not outdated"
 
-- Uses CockroachDB **v26.2** (latest stable series).
+- Uses CockroachDB **v26.2** (the current *Regular* release line — the tag
+  `latest-v26.2` is pinned on purpose; v26.3 is an *Innovation* release).
+- **Licensing note:** an unlicensed cluster that isn't sending telemetry is throttled
+  by CockroachDB (concurrent open SQL transactions capped at 5, per the licensing
+  FAQ). The demo opens 8 concurrent transfers, so on such a cluster some may fail
+  with `SQLSTATE XXC02`; the program now reports the actual number that committed.
+  Installing a license (or letting the cluster send telemetry) avoids the throttle.
 - Avoids `crdb_internal`/`system` tables, which v26 restricts by default (enabling
   them via `allow_unsafe_internals` is explicitly _not recommended_). Topology is read
   from the supported `SHOW RANGES … WITH DETAILS` surface instead.

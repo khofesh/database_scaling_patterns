@@ -25,23 +25,29 @@ Each physical node is placed at many points on the ring as **virtual nodes
 
 1. **The hash ring** — nodes and keys share one 32-bit CRC space.
 2. **Virtual nodes** — 1000 vnodes per node for even load.
-3. **Minimal data movement** — adding node4 re-homes only ~1/4 of keys.
+3. **Minimal data movement** — adding node4 re-homes roughly **1/N** of keys
+   (18.0% for the fixed dataset in the demo, vs ~25% ideal for 3→4 nodes).
 4. **Modulo comparison** — `key % N` reshuffles most keys on resize.
-5. **Real persistence** — each key is stored on its owning PostgreSQL node.
+5. **Real persistence** — the demo writes each key to its ring-owning PostgreSQL
+   node (for the initial 3-node placement; node4 is added only to *measure* churn,
+   the already-written keys aren't re-homed).
 
 ### Architecture
 
-```
-                 hash ring (0 .. 2^32-1)
-                ┌───────────────────────┐
-        key ───►│  •n2  •n1   •n3  •n1   │  key owned by first
-                │ •n3        •n2    •n1  │  vnode clockwise
-                │   •n1  •n3    •n2  •n3 │
-                └───────────────────────┘
-                  1000 vnodes per node
-
-   node1:5450   node2:5451   node3:5452   node4:5453 (added mid-demo)
-   each is a plain PostgreSQL holding the keys that hash to it
+```mermaid
+flowchart TB
+    K["key"] -- "hash(key) → 0 .. 2^32-1" --> R
+    subgraph R["hash ring (1000 vnodes per node)"]
+        direction LR
+        V1["vnode n2"] --> V2["vnode n1"] --> V3["vnode n3"] --> V4["vnode n1"] --> V5["…"] --> V1
+    end
+    R -- "first vnode clockwise owns the key" --> N
+    subgraph N["physical nodes (plain PostgreSQL)"]
+        N1[("node1 :5450")]
+        N2[("node2 :5451")]
+        N3[("node3 :5452")]
+        N4[("node4 :5453<br/>added mid-demo")]
+    end
 ```
 
 ## How to Run
@@ -56,8 +62,8 @@ go run main.go
 ## Expected Output
 
 Keys distribute fairly evenly across 3 nodes. Adding node4 re-homes about
-**25%** of keys (consistent hashing), versus **~75%** for `key % N` modulo
-sharding — printed side by side.
+**18%** of keys for this dataset (consistent hashing moves ~1/N, ideally 25% for
+3→4 nodes), versus **~75%** for `key % N` modulo sharding — printed side by side.
 
 ## Consistent Hashing vs Modulo Sharding
 

@@ -71,7 +71,7 @@ for i := 0; i < h.replicas; i++ {
     h.ring = append(h.ring, hash)
     h.owners[hash] = node
 }
-sort.Slice(h.ring, ...)
+slices.Sort(h.ring)
 ```
 
 | Line               | What It Does                                  | Why We Do It                                         |
@@ -90,7 +90,7 @@ _movement_ on resize stays ~1/N.)
 
 ```go
 hash := hashKey(key)
-idx := sort.Search(len(h.ring), func(i int) bool { return h.ring[i] >= hash })
+idx, _ := slices.BinarySearch(h.ring, hash)
 if idx == len(h.ring) {
     idx = 0 // wrap around
 }
@@ -100,10 +100,10 @@ return h.owners[h.ring[idx]]
 | Step                  | What It Does                                | Why We Do It                        |
 | --------------------- | ------------------------------------------- | ----------------------------------- |
 | `hashKey(key)`        | Places the key on the same ring             | Keys and nodes must share one space |
-| `sort.Search(... >=)` | First vnode at or after the key (clockwise) | That vnode's node owns the key      |
+| `BinarySearch >=`     | First vnode at or after the key (clockwise) | That vnode's node owns the key      |
 | wrap to `0`           | If past the last point, wrap to the first   | The ring is circular                |
 
-`sort.Search` is O(log V) where V is the total vnode count — fast even with
+`slices.BinarySearch` is O(log V) where V is the total vnode count — fast even with
 thousands of points.
 
 ### Removing a node

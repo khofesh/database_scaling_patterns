@@ -41,6 +41,15 @@ func NewShardManager(ctx context.Context, configs []ShardConfig) (*ShardManager,
 			}
 			return nil, fmt.Errorf("failed to connect to shard %s: %w", cfg.Name, err)
 		}
+		// pgxpool.New is lazy — it doesn't open a connection. Ping verifies the
+		// shard is actually reachable before we print "Connected".
+		if err := pool.Ping(ctx); err != nil {
+			pool.Close()
+			for j := 0; j < i; j++ {
+				sm.shards[j].Close()
+			}
+			return nil, fmt.Errorf("failed to connect to shard %s: %w", cfg.Name, err)
+		}
 		sm.shards[i] = pool
 		fmt.Printf("✅ Connected to %s\n", cfg.Name)
 	}
@@ -55,11 +64,15 @@ func (sm *ShardManager) Close() {
 	}
 }
 
-// GetShardIndex returns the shard index for a given user ID using consistent hashing
+// GetShardIndex returns the shard index for a given user ID using FNV-1a hashing
+// modulo the number of shards. This is hash-based (modulo) sharding, not
+// consistent hashing: changing the shard count remaps most keys.
 func (sm *ShardManager) GetShardIndex(userID int) int {
 	h := fnv.New32a()
 	h.Write([]byte(fmt.Sprintf("%d", userID)))
-	return int(h.Sum32()) % sm.count
+	// Modulo over the uint32 hash first keeps the result in 0..count-1 regardless
+	// of int width (a plain int() cast could go negative on 32-bit platforms).
+	return int(h.Sum32() % uint32(sm.count))
 }
 
 // GetShard returns the connection pool for a given user ID

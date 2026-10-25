@@ -80,8 +80,11 @@ CREATE POLICY tenant_isolation ON documents
 | `WITH CHECK` | INSERT / UPDATE          | Which new/changed rows are _allowed_ to be written |
 
 `current_setting('app.current_tenant')` reads a session variable the app sets per
-transaction. If it's unset, `current_setting` raises an error — which means **no
-tenant context fails closed** rather than exposing everything.
+transaction. When it's missing the query errors — either `unrecognized configuration
+parameter` (on a connection where it was never set) or `invalid input syntax for type
+integer: ""` (on a reused pooled connection where `set_config(..., is_local=true)`
+left it defined but empty). Either way, **no tenant context fails closed** rather than
+exposing everything.
 
 ---
 

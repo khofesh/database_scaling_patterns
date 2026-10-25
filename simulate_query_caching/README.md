@@ -29,18 +29,20 @@ microseconds.
 
 ### Architecture
 
-```
-                 1. GET product:1
-   ┌─────────┐ ───────────────────► ┌─────────┐
-   │   Go    │   2a. HIT (return)    │  Redis  │
-   │   app   │ ◄──────────────────── │  :6379  │
-   └────┬────┘                       └─────────┘
-        │ 2b. MISS
-        ▼ 3. read DB           4. SET product:1 (TTL)
-   ┌──────────────┐ ──────────────────► (back to Redis)
-   │ PostgreSQL   │
-   │ :5441        │
-   └──────────────┘
+```mermaid
+sequenceDiagram
+    participant App as Go app
+    participant R as Redis :6379
+    participant DB as PostgreSQL :5441
+    App->>R: 1. GET product:1
+    alt cache hit
+        R-->>App: 2a. HIT (return value)
+    else cache miss
+        R-->>App: 2b. MISS
+        App->>DB: 3. SELECT … WHERE id = 1
+        DB-->>App: row
+        App->>R: 4. SET product:1 (TTL)
+    end
 ```
 
 ## Caching Strategies
@@ -48,7 +50,7 @@ microseconds.
 | Strategy               | On write...                       | Staleness window         | Used here in              |
 | ---------------------- | --------------------------------- | ------------------------ | ------------------------- |
 | **Cache-aside**        | (nothing special)                 | up to the TTL            | `GetProduct`              |
-| **Write-through**      | write DB **and** cache            | none for that key        | `UpdatePriceWriteThrough` |
+| **Write-through**      | write DB **and** cache            | tiny window between DB commit and cache SET (single-threaded demo eliminates it) | `UpdatePriceWriteThrough` |
 | **Write + invalidate** | write DB, delete cache key        | none (next read reloads) | `UpdatePriceInvalidate`   |
 | **TTL expiry**         | entry self-destructs after N secs | bounded by TTL           | `demonstrateTTL`          |
 

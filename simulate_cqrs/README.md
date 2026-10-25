@@ -35,18 +35,19 @@ runs — and this project shows exactly that window.
 
 ### Architecture
 
-```
-   COMMAND ──► ┌─────────────── write_db (5460) ───────────────┐
-  PlaceOrder   │ customers / orders / order_items (normalized) │
-  UpdateStatus │ events  (outbox, written in same TX)          │
-               └───────────────────────┬───────────────────────┘
-                                        │ poll unprocessed events
-                                  ┌─────▼──────┐
-                                  │  Projector │  JOIN + aggregate
-                                  └─────┬──────┘
-               ┌───────────────── read_db (5461) ──────────────┐
-   QUERY ─────►│ order_summary (denormalized, 1 row per order) │
- GetOrderSummary└──────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    C["COMMAND<br/>PlaceOrder / UpdateStatus"] --> W
+    subgraph W["write_db :5460 (normalized)"]
+        T["customers / orders / order_items"]
+        E["events (outbox, same TX)"]
+    end
+    W -- "poll unprocessed events" --> PR["Projector<br/>JOIN + aggregate"]
+    PR --> RD
+    subgraph RD["read_db :5461 (denormalized)"]
+        OS["order_summary<br/>1 row per order"]
+    end
+    Q["QUERY<br/>GetOrderSummary"] --> RD
 ```
 
 ## How to Run

@@ -190,7 +190,7 @@ import (
     "fmt"
     "hash/fnv"
     "log"
-    "math/rand"
+    "math/rand/v2"
     "sync"
     "time"
 
@@ -201,7 +201,7 @@ import (
 | Import     | Purpose                                                 |
 | ---------- | ------------------------------------------------------- |
 | `context`  | Manages request lifecycles and cancellation             |
-| `hash/fnv` | FNV-1a hash algorithm for consistent shard routing      |
+| `hash/fnv` | FNV-1a hash algorithm for deterministic shard routing      |
 | `sync`     | WaitGroup for parallel shard queries                    |
 | `pgxpool`  | PostgreSQL connection pooling (high-performance driver) |
 
@@ -252,6 +252,13 @@ func NewShardManager(ctx context.Context, configs []ShardConfig) (*ShardManager,
             }
             return nil, fmt.Errorf("failed to connect to shard %s: %w", cfg.Name, err)
         }
+        if err := pool.Ping(ctx); err != nil {
+            pool.Close()
+            for j := 0; j < i; j++ {
+                sm.shards[j].Close()
+            }
+            return nil, fmt.Errorf("failed to connect to shard %s: %w", cfg.Name, err)
+        }
         sm.shards[i] = pool
         fmt.Printf("✅ Connected to %s\n", cfg.Name)
     }
@@ -264,12 +271,13 @@ func NewShardManager(ctx context.Context, configs []ShardConfig) (*ShardManager,
 | ----- | ---------------------------------- | ---------------------------------------------------------- |
 | 29-32 | Pre-allocate shard array           | Avoids dynamic resizing                                    |
 | 34-44 | Connect to each shard sequentially | Establishes connection pools                               |
+| 36-45 | `pool.Ping(ctx)` per shard         | `pgxpool.New` is lazy; Ping proves the shard is reachable  |
 | 37-40 | Cleanup on failure                 | **Critical**: Prevents connection leaks if one shard fails |
-| 44    | Log successful connection          | Operational visibility                                     |
+| 47    | Log successful connection          | Operational visibility                                     |
 
 **Error Handling Pattern:**
 
-- If shard 2 fails to connect, shards 0 and 1 are properly closed
+- If shard 2 fails to connect (or ping), shards 0 and 1 are properly closed
 - Returns wrapped error with shard name for debugging
 
 **Pros:**
@@ -300,7 +308,7 @@ Ensures all database connections are properly released. Called via `defer sm.Clo
 func (sm *ShardManager) GetShardIndex(userID int) int {
     h := fnv.New32a()
     h.Write([]byte(fmt.Sprintf("%d", userID)))
-    return int(h.Sum32()) % sm.count
+    return int(h.Sum32() % uint32(sm.count))
 }
 ```
 
@@ -320,7 +328,8 @@ func (sm *ShardManager) GetShardIndex(userID int) int {
 
 **Why not simple `userID % 3`?**
 
-- Sequential IDs would create uneven distribution (users 1,4,7,10 all on shard 1)
+- Sequential IDs would create uneven distribution (users 1,4,7,10 all land on the
+  same shard, since they share the same remainder)
 - Hashing spreads sequential IDs across shards more evenly
 
 **Pros:**
@@ -486,16 +495,20 @@ func demonstrateScatterGather(ctx context.Context, sm *ShardManager) {
         user     *User
     }, sm.count)
 
-    // Query all shards in parallel
+    // Query all shards in parallel. wg.Go (Go 1.22+) captures the loop variables
+    // per iteration, so each goroutine sees its own i/shard.
     for i, shard := range sm.GetAllShards() {
-        wg.Add(1)
-        go func(idx int, pool *pgxpool.Pool) {
-            defer wg.Done()
-            // ... query this shard
+        wg.Go(func() {
+            var user User
+            err := shard.QueryRow(ctx, "SELECT id, username, email FROM users WHERE username = $1", "alice").
+                Scan(&user.ID, &user.Username, &user.Email)
             if err == nil {
-                results <- struct{...}{idx, &user}
+                results <- struct {
+                    shardIdx int
+                    user     *User
+                }{i, &user}
             }
-        }(i, shard)
+        })
     }
 
     go func() {

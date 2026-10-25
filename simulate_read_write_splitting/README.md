@@ -32,19 +32,24 @@ has caught up — otherwise it falls back to the primary.
 
 ### Architecture
 
-```
-                    ┌────────────────────────────────────┐
-                    │            Router (Go)             │
-   app calls ─────► │  Write()  ─────────────► primary   │
-                    │  Read()   ──┐                       │
-                    │  Consistent │  picks replica iff    │
-                    │  Read(lsn)  │  replay_lsn >= lsn,    │
-                    └─────────────┼──── else primary ─────┘
-                                  ▼
-        ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-        │ Primary 5442 │──►│ Replica 5443 │   │ Replica 5444 │
-        │  (writes)    │   │   (reads)    │   │   (reads)    │
-        └──────────────┘   └──────────────┘   └──────────────┘
+```mermaid
+flowchart TB
+    App["app calls"] --> Router
+    subgraph Router["Router (Go)"]
+        WR["Write()"]
+        RE["Read()"]
+        CR{"ConsistentRead(lsn)<br/>replica replay_lsn >= lsn?"}
+    end
+    P[("Primary :5442<br/>writes")]
+    R1[("Replica :5443<br/>reads")]
+    R2[("Replica :5444<br/>reads")]
+    WR --> P
+    RE --> R1
+    RE --> R2
+    CR -- yes --> R1
+    CR -- no --> P
+    P -- WAL --> R1
+    P -- WAL --> R2
 ```
 
 ## How to Run
@@ -58,10 +63,10 @@ go run main.go
 
 ## Expected Output
 
-Writes are routed to the primary and reads to alternating replicas. A fresh write
-followed by a consistent read is served from the **primary** (replicas not caught
-up yet); a moment later the same read is served from a **replica**. Routing
-counters are printed at the end.
+Writes are routed to the primary and reads to alternating replicas. After a write, a
+consistent read is served from a replica that has caught up to the write's LSN — on a
+LAN that's usually the very next read. The router only falls back to the **primary**
+when no replica has replayed that far yet. Routing counters are printed at the end.
 
 ## App-level Router vs Proxy
 

@@ -31,15 +31,16 @@ connections.
 
 ### Architecture
 
-```
-   many app clients                            small server pool
-   ┌────────────────┐    ┌───────────────┐    ┌──────────────────────┐
-   │ 100 goroutines │──► │   PgBouncer   │──► │ PostgreSQL           │
-   │  (pooledURL)   │    │  :6432        │    │ :5440                │
-   └────────────────┘    │ pool size = 5 │    │ max_connections = 20 │
-                         └───────────────┘    └──────────────────────┘
-   direct clients ───────────────────────────────────►  (bypass pooler)
-   (directURL :5440)        exhaust the 20 slots
+```mermaid
+flowchart LR
+    subgraph Clients["many app clients"]
+        A["100 goroutines<br/>(pooledURL)"]
+        DC["direct clients<br/>(directURL :5440)"]
+    end
+    PB["PgBouncer :6432<br/>pool size = 5"]
+    PG[("PostgreSQL :5440<br/>max_connections = 20")]
+    A --> PB -- "5 server connections" --> PG
+    DC -. "bypass pooler,<br/>exhaust the 20 slots" .-> PG
 ```
 
 ## Pool Modes

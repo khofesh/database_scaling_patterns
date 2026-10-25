@@ -71,7 +71,7 @@ func (r *Router) Write(ctx, sql, args...) (string, error) {
 | Line                   | What It Does                             | Why We Do It                                        |
 | ---------------------- | ---------------------------------------- | --------------------------------------------------- |
 | `r.primary.Exec`       | Runs the mutation on the primary         | Writes must be linearised on one node               |
-| `pg_current_wal_lsn()` | Reads the primary's current WAL position | This LSN marks "the point your write is durable at" |
+| `pg_current_wal_lsn()` | Reads the primary's current WAL insert position | Read *after* commit, it is at/after the LSN where our write's commit record was flushed — a safe high-water mark for "have you caught up" |
 | return `lsn`           | Hands the LSN back to the caller         | Enables read-your-writes on the follow-up read      |
 
 **Why return an LSN?** It's a precise, monotonic "version token" for the write.
@@ -118,11 +118,13 @@ and Spanner expose as "read-your-writes / bounded-staleness" reads.
 
 ### The demo
 
-- `demonstrateRouting`: one INSERT (→ primary) and several SELECTs (→ alternating
-  replicas, shown via `inet_server_port()`).
+- `demonstrateRouting`: one INSERT (→ primary) and four SELECTs (→ round-robin
+  across the two replicas).
 - `demonstrateConsistentRead`: insert a customer, capture the LSN, and do a
-  `ConsistentRead`. Immediately it's served from the **primary** (replicas not yet
-  caught up); after a 300 ms pause the same read is served from a **replica**.
+  `ConsistentRead`. If a replica has already replayed past the LSN (the usual case
+  on a LAN) it's served from a **replica**; the router only falls back to the
+  **primary** while no replica has caught up. After a 300 ms pause the same read is
+  served from a replica again.
 
 ---
 
@@ -174,20 +176,24 @@ $ go run main.go
 🧭 AUTOMATIC ROUTING (writes→primary, reads→replicas)
 --------------------------------------------------
    INSERT customer → routed to PRIMARY
-   SELECT customers → routed to REPLICA (7 rows)
-   SELECT customers → routed to REPLICA (7 rows)
-   SELECT customers → routed to REPLICA (7 rows)
-   SELECT customers → routed to REPLICA (7 rows)
+   SELECT customers → routed to REPLICA (5 rows)
+   SELECT customers → routed to REPLICA (5 rows)
+   SELECT customers → routed to REPLICA (5 rows)
+   SELECT customers → routed to REPLICA (5 rows)
 
 🪞 READ-YOUR-WRITES via LSN tracking
 --------------------------------------------------
    Inserted new customer; commit LSN = 0/5000818
-   Read-your-writes hit from primary: New Signup (standard) ✅ never stale
+   Read-your-writes hit from replica: New Signup (standard) ✅ never stale
    After 300ms, same read served from: replica (replicas caught up)
 
 📊 ROUTING STATISTICS
 --------------------------------------------------
    Writes → primary:        2
-   Reads  → replicas:       5
-   Reads  → primary (RYW):  1
+   Reads  → replicas:       6
+   Reads  → primary (RYW):  0
 ```
+
+The exact numbers vary: the row counts depend on data already in the volumes, and
+`Reads → primary (RYW)` only becomes non-zero if a consistent read happens before
+any replica has replayed the write's LSN.

@@ -29,18 +29,19 @@ ever returns the current tenant's rows.
 
 ### Architecture
 
-```
-   app sets app.current_tenant = 2  (per transaction, via app_user role)
-                       │
-                       ▼
-        ┌──────────── saas_db (one schema) ────────────┐
-        │ documents(id, tenant_id, title, body, ...)   │
-        │                                              │
-        │ RLS policy tenant_isolation:                 │
-        │   USING      tenant_id = current tenant      │
-        │   WITH CHECK tenant_id = current tenant      │
-        └──────────────────────────────────────────────┘
-   every query is auto-filtered to tenant 2's rows only
+```mermaid
+flowchart TB
+    App["app (app_user role)<br/>SET app.current_tenant = 2<br/>per transaction"]
+    subgraph DB["saas_db (one shared schema)"]
+        RLS{"RLS policy tenant_isolation<br/>USING tenant_id = current tenant<br/>WITH CHECK tenant_id = current tenant"}
+        T1["tenant 1 rows"]
+        T2["tenant 2 rows"]
+        T3["tenant 3 rows"]
+    end
+    App --> RLS
+    RLS -- visible --> T2
+    RLS -. filtered out .-> T1
+    RLS -. filtered out .-> T3
 ```
 
 ## How to Run

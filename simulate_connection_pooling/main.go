@@ -113,7 +113,9 @@ func demonstrateMultiplexing(ctx context.Context, admin *pgxpool.Pool) {
 	})
 
 	fmt.Printf("   Succeeded: %d   Failed: %d\n", ok.Load(), failed.Load())
-	fmt.Printf("   Peak client backends seen on the server: %d (≈ pool size, not %d)\n",
+	// The observed peak is the PgBouncer backends plus the admin observer's own
+	// connection to app_db, so it's ~pool size + 1 — still nowhere near 100.
+	fmt.Printf("   Peak client backends seen on the server: %d (≈ pool size + admin observer, not %d)\n",
 		<-maxBackends, concurrency)
 }
 

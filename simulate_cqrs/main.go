@@ -78,8 +78,11 @@ func (c *CQRS) UpdateStatus(ctx context.Context, orderID int, status string) err
 }
 
 func appendEvent(ctx context.Context, tx pgx.Tx, kind string, orderID int) error {
-	payload, _ := json.Marshal(map[string]any{"type": kind, "order_id": orderID})
-	_, err := tx.Exec(ctx,
+	payload, err := json.Marshal(map[string]any{"type": kind, "order_id": orderID})
+	if err != nil {
+		return fmt.Errorf("marshal event: %w", err)
+	}
+	_, err = tx.Exec(ctx,
 		"INSERT INTO events (aggregate, payload) VALUES ('order', $1)", payload)
 	return err
 }
@@ -108,7 +111,16 @@ func (c *CQRS) Project(ctx context.Context) (int, error) {
 			rows.Close()
 			return 0, err
 		}
-		batch = append(batch, ev{id: id, orderID: int(payload["order_id"].(float64))})
+		orderID, ok := payload["order_id"].(float64)
+		if !ok {
+			rows.Close()
+			return 0, fmt.Errorf("malformed outbox event %d: order_id missing", id)
+		}
+		batch = append(batch, ev{id: id, orderID: int(orderID)})
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return 0, err
 	}
 	rows.Close()
 
@@ -150,9 +162,12 @@ func (c *CQRS) projectOrder(ctx context.Context, orderID int) error {
 		    (order_id, customer_name, customer_email, item_count, total_cents, status, placed_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (order_id) DO UPDATE SET
-		    item_count = EXCLUDED.item_count,
-		    total_cents = EXCLUDED.total_cents,
-		    status = EXCLUDED.status`,
+		    customer_name  = EXCLUDED.customer_name,
+		    customer_email = EXCLUDED.customer_email,
+		    item_count     = EXCLUDED.item_count,
+		    total_cents    = EXCLUDED.total_cents,
+		    status         = EXCLUDED.status,
+		    placed_at      = EXCLUDED.placed_at`,
 		orderID, name, email, itemCount, total, status, placedAt)
 	return err
 }

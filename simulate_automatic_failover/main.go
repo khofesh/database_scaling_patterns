@@ -18,12 +18,12 @@ type FailoverManager struct {
 	primaryURL string
 	standbyURL string
 
-	current     *pgxpool.Pool // pool currently treated as the writable primary
-	standby     *pgxpool.Pool // the standby pool (becomes current after promotion)
-	promoted    bool
-	failThresh  int           // consecutive failures before we fail over
-	probeEvery  time.Duration // how often we health-check
-	probeTimout time.Duration // per-probe timeout
+	current      *pgxpool.Pool // pool currently treated as the writable primary
+	standby      *pgxpool.Pool // the standby pool (becomes current after promotion)
+	promoted     bool
+	failThresh   int           // consecutive failures before we fail over
+	probeEvery   time.Duration // how often we health-check
+	probeTimeout time.Duration // per-probe timeout
 }
 
 func NewFailoverManager(ctx context.Context, primaryURL, standbyURL string) (*FailoverManager, error) {
@@ -37,13 +37,13 @@ func NewFailoverManager(ctx context.Context, primaryURL, standbyURL string) (*Fa
 		return nil, err
 	}
 	return &FailoverManager{
-		primaryURL:  primaryURL,
-		standbyURL:  standbyURL,
-		current:     primary,
-		standby:     standby,
-		failThresh:  3,
-		probeEvery:  1 * time.Second,
-		probeTimout: 2 * time.Second,
+		primaryURL:   primaryURL,
+		standbyURL:   standbyURL,
+		current:      primary,
+		standby:      standby,
+		failThresh:   3,
+		probeEvery:   1 * time.Second,
+		probeTimeout: 2 * time.Second,
 	}, nil
 }
 
@@ -56,7 +56,7 @@ func (m *FailoverManager) Close() {
 
 // healthy returns true if the current primary answers a trivial query in time.
 func (m *FailoverManager) healthy(ctx context.Context) bool {
-	cctx, cancel := context.WithTimeout(ctx, m.probeTimout)
+	cctx, cancel := context.WithTimeout(ctx, m.probeTimeout)
 	defer cancel()
 	var one int
 	return m.current.QueryRow(cctx, "SELECT 1").Scan(&one) == nil

@@ -210,8 +210,9 @@ the topology is correct.
 
 ### demonstrateBalancedReads
 
-Each read calls `rs.Reader()` and runs `SELECT inet_server_port()`; alternating
-ports confirm the two replicas are being used in turn.
+Each read calls `rs.Reader()` (round-robin) and runs `SELECT COUNT(*) FROM
+products`; the printed replica index alternates, proving the reads are spread
+across the two replicas.
 
 ### demonstrateReplicationLag
 
@@ -308,12 +309,12 @@ $ go run main.go
 
 📖 READS ARE LOAD-BALANCED ACROSS REPLICAS
 --------------------------------------------------
-   Read #1 → replica 2 (8 products)
-   Read #2 → replica 1 (7 products)
-   Read #3 → replica 2 (8 products)
-   Read #4 → replica 1 (7 products)
-   Read #5 → replica 2 (8 products)
-   Read #6 → replica 1 (7 products)
+   Read #1 → replica 2 (5 products)
+   Read #2 → replica 1 (5 products)
+   Read #3 → replica 2 (5 products)
+   Read #4 → replica 1 (5 products)
+   Read #5 → replica 2 (5 products)
+   Read #6 → replica 1 (5 products)
 
 ⏱️  REPLICATION LAG
 --------------------------------------------------
@@ -323,7 +324,7 @@ $ go run main.go
 
 🪞 READ-YOUR-WRITES CONSISTENCY
 --------------------------------------------------
-   Inserted product id=10 on primary
+   Inserted product id=6 on primary
    Read-your-writes via primary: price=$12.34 (always consistent)
    ↳ Use this for "edit then view" flows; use replicas for everything else.
 

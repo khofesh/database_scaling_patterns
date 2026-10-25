@@ -28,6 +28,12 @@ func main() {
 	fmt.Println("Connected to PostgreSQL!")
 	fmt.Println(strings.Repeat("=", 50))
 
+	// Clear the SERIAL-keyed tables so re-running the demo is truly idempotent.
+	// users/products/orders use ON CONFLICT DO NOTHING below, but orders and
+	// products have SERIAL ids, so without a reset every re-run would append
+	// duplicate rows with fresh ids.
+	resetDemo(ctx, pool)
+
 	// Demonstrate Range Partitioning (Orders)
 	fmt.Println("\n📊 RANGE PARTITIONING DEMO (Orders by Date)")
 	fmt.Println(strings.Repeat("-", 50))
@@ -202,8 +208,7 @@ func showPartitionStats(ctx context.Context, pool *pgxpool.Pool) {
 		SELECT 
 			parent.relname AS parent_table,
 			child.relname AS partition_name,
-			pg_size_pretty(pg_relation_size(child.oid)) AS partition_size,
-			(SELECT COUNT(*) FROM pg_class WHERE relname = child.relname) AS exists
+			pg_size_pretty(pg_relation_size(child.oid)) AS partition_size
 		FROM pg_inherits
 		JOIN pg_class parent ON pg_inherits.inhparent = parent.oid
 		JOIN pg_class child ON pg_inherits.inhrelid = child.oid
@@ -222,8 +227,7 @@ func showPartitionStats(ctx context.Context, pool *pgxpool.Pool) {
 	currentParent := ""
 	for rows.Next() {
 		var parentTable, partitionName, partitionSize string
-		var exists int
-		rows.Scan(&parentTable, &partitionName, &partitionSize, &exists)
+		rows.Scan(&parentTable, &partitionName, &partitionSize)
 
 		if parentTable != currentParent {
 			fmt.Printf("\n   Table: %s\n", parentTable)
@@ -255,9 +259,13 @@ func demonstratePartitionPruning(ctx context.Context, pool *pgxpool.Pool) {
 
 	br := pool.SendBatch(ctx, batch)
 	_, err := br.Exec()
-	br.Close()
+	closeErr := br.Close()
 	if err != nil {
 		log.Printf("Error batch inserting: %v", err)
+	} else if closeErr != nil {
+		// br.Exec() only surfaces the error of the first statement; Close()
+		// drains the rest, so this is where failures in statements 2..1000 appear.
+		log.Printf("Error batch inserting: %v", closeErr)
 	}
 
 	fmt.Println("✅ Inserted 1000 orders")
@@ -289,5 +297,14 @@ func demonstratePartitionPruning(ctx context.Context, pool *pgxpool.Pool) {
 		var plan string
 		rows.Scan(&plan)
 		fmt.Printf("   %s\n", plan)
+	}
+}
+
+// resetDemo truncates the demo tables (and their partitions) so every run starts
+// from the same state. RESTART IDENTITY resets the SERIAL sequences, keeping ids
+// deterministic across re-runs.
+func resetDemo(ctx context.Context, pool *pgxpool.Pool) {
+	if _, err := pool.Exec(ctx, "TRUNCATE orders, users, products RESTART IDENTITY"); err != nil {
+		log.Printf("reset: %v", err)
 	}
 }
