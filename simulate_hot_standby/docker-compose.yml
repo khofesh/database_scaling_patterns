@@ -1,0 +1,100 @@
+services:
+  # Primary with WAL ARCHIVING: every completed 16 MB WAL segment is copied to the
+  # shared /archive volume. That archive feeds the warm standby and makes
+  # point-in-time recovery possible.
+  pg_primary:
+    image: postgres:18-bookworm
+    container_name: hotstandby_primary
+    entrypoint: ["/bin/bash", "/primary-entrypoint.sh"]
+    command:
+      - postgres
+      - -c
+      - wal_keep_size=256MB
+      - -c
+      - archive_mode=on
+      # Never overwrite an existing archived file (protects the archive).
+      - -c
+      - archive_command=test ! -f /archive/%f && cp %p /archive/%f
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bank
+      PGDATA: /var/lib/postgresql/data
+    ports:
+      - "5525:5432"
+    volumes:
+      - hotstandby_primary_data:/var/lib/postgresql/data
+      - hotstandby_archive:/archive
+      - hotstandby_backups:/backups
+      - ./init/primary:/docker-entrypoint-initdb.d
+      - ./init/primary-entrypoint.sh:/primary-entrypoint.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bank"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # HOT standby: streams WAL continuously and serves read-only queries.
+  standby_hot:
+    image: postgres:18-bookworm
+    container_name: hotstandby_hot
+    entrypoint: ["/bin/bash", "/hot-standby-entrypoint.sh"]
+    environment:
+      PGDATA: /var/lib/postgresql/data
+      PRIMARY_HOST: pg_primary
+      REPLICATOR_PASSWORD: replicator
+    ports:
+      - "5526:5432"
+    volumes:
+      - hotstandby_hot_data:/var/lib/postgresql/data
+      - ./init/hot-standby-entrypoint.sh:/hot-standby-entrypoint.sh:ro
+    depends_on:
+      pg_primary:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bank"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # WARM standby: log shipping from /archive, no client connections. Its data dir is
+  # an anonymous volume so the demo can recreate it fresh (`up -V`) on every run —
+  # the demo promotes it.
+  standby_warm:
+    image: postgres:18-bookworm
+    container_name: hotstandby_warm
+    entrypoint: ["/bin/bash", "/warm-standby-entrypoint.sh"]
+    environment:
+      PGDATA: /var/lib/postgresql/data
+      PRIMARY_HOST: pg_primary
+      REPLICATOR_PASSWORD: replicator
+    ports:
+      - "5527:5432"
+    volumes:
+      - hotstandby_archive:/archive:ro
+      - ./init/warm-standby-entrypoint.sh:/warm-standby-entrypoint.sh:ro
+    depends_on:
+      pg_primary:
+        condition: service_healthy
+
+  # PITR target: only started by the demo (profile), from the base backup + archive.
+  pitr:
+    image: postgres:18-bookworm
+    container_name: hotstandby_pitr
+    profiles: ["pitr"]
+    entrypoint: ["/bin/bash", "/pitr-entrypoint.sh"]
+    environment:
+      PGDATA: /var/lib/postgresql/data
+      RECOVERY_TARGET_NAME: before_disaster
+    ports:
+      - "5528:5432"
+    volumes:
+      - hotstandby_archive:/archive:ro
+      - hotstandby_backups:/backups:ro
+      - ./init/pitr-entrypoint.sh:/pitr-entrypoint.sh:ro
+
+volumes:
+  hotstandby_primary_data:
+  hotstandby_hot_data:
+  hotstandby_archive:
+  hotstandby_backups:

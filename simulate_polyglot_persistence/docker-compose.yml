@@ -1,0 +1,57 @@
+services:
+  # PostgreSQL: the SYSTEM OF RECORD. Every write lands here first, together with an
+  # outbox event in the same transaction.
+  postgres:
+    image: postgres:18-bookworm
+    container_name: polyglot_pg
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: shop
+    ports:
+      - "5535:5432"
+    volumes:
+      - polyglot_pg_data:/var/lib/postgresql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d shop"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Redis: in-memory key-value + data structures — product cache and a real-time
+  # best-seller leaderboard (sorted set). Derived data: can be rebuilt from Postgres.
+  redis:
+    image: redis:8-alpine
+    container_name: polyglot_redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Elasticsearch: full-text search with typo tolerance, relevance ranking and
+  # facets. Derived data: rebuilt from Postgres. Single node, security disabled —
+  # demo only.
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.1.5
+    container_name: polyglot_es
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - polyglot_es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+volumes:
+  polyglot_pg_data:
+  polyglot_es_data:

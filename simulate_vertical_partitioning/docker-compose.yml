@@ -1,0 +1,25 @@
+services:
+  # A single PostgreSQL instance holding the SAME data twice: once in one wide
+  # table, once split vertically into hot/cold/blob tables — so the two layouts can
+  # be compared side by side.
+  postgres:
+    image: postgres:18-bookworm
+    container_name: vertical_pg
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    ports:
+      - "5520:5432"
+    volumes:
+      - vertical_data:/var/lib/postgresql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      # TCP check: stays unhealthy until first-boot seeding has finished.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d app"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  vertical_data:
